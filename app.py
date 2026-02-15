@@ -44,7 +44,7 @@ with st.sidebar:
         st_lottie(lottie_robot, height=200, key="robot")
     
     st.title("🎓 Project Details")
-    st.info("**Student Name:** Ankit Gupta")
+    st.info("**Student Name:** Ankit Gupta, Khushi , Ayush")
     st.info("**Course:** BCA")
     st.info("**Project:** AI Chatbot")
     
@@ -77,4 +77,5 @@ if prompt := st.chat_input("Ask me about BCA, Coding, or Data Science..."):
         with st.spinner("🔄 Rotating keys & generating response..."):
             ai_response = get_gemini_response(prompt)
             st.markdown(ai_response)
+
             st.session_state.messages.append({"role": "assistant", "content": ai_response})
