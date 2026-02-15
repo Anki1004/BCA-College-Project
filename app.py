@@ -9,7 +9,7 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 # --- 2. SIDEBAR (Perfect for College Projects) ---
 with st.sidebar:
     st.title("🎓 Project Details")
-    st.info("**Student Name:** Ankit Gupta")
+    st.info("**Student Name:** Ankit Gupta , Khushi , Ayush ")
     st.info("**Course:** BCA")
     st.markdown("---")
     if st.button("Clear Chat History"):
@@ -47,4 +47,5 @@ if prompt := st.chat_input("Ask me about BCA, Coding, or Projects..."):
                 # Save assistant response to history
                 st.session_state.messages.append({"role": "assistant", "content": full_res})
             except Exception as e:
+
                 st.error(f"Something went wrong: {e}")
