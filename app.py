@@ -4,78 +4,140 @@ import requests
 from streamlit_lottie import st_lottie
 import time
 
-# --- 1. PAGE CONFIGURATION ---
-st.set_page_config(page_title="BCA AI Assistant", page_icon="🤖", layout="wide")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="BCA AI Assistant",
+    page_icon="🤖",
+    layout="wide"
+)
 
-# --- 2. 3D ANIMATION LOADER ---
+# ---------------- CUSTOM CSS ----------------
+st.markdown("""
+<style>
+body {
+    background-color: #0f172a;
+}
+
+.stApp {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+}
+
+.chat-title {
+    text-align: center;
+    font-size: 40px;
+    font-weight: bold;
+    background: -webkit-linear-gradient(#38bdf8, #6366f1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.chat-subtitle {
+    text-align: center;
+    font-size: 18px;
+    color: #cbd5e1;
+    margin-bottom: 20px;
+}
+
+.stChatMessage {
+    border-radius: 15px !important;
+}
+
+.stButton>button {
+    border-radius: 10px;
+    background-color: #6366f1;
+    color: white;
+}
+
+.stButton>button:hover {
+    background-color: #4f46e5;
+    color: white;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------- LOTTIE LOADER ----------------
 def load_lottieurl(url: str):
-    r = requests.get(url)
-    if r.status_code != 200:
+    try:
+        r = requests.get(url)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except:
         return None
-    return r.json()
 
-# Professional 3D Robot Animation for your BCA Project
-lottie_robot = load_lottieurl("https://lottie.host/8e31a980-607b-498c-87d3-f57f6139163d/vXvUvT4O9H.json")
+lottie_robot = load_lottieurl(
+    "https://lottie.host/8e31a980-607b-498c-87d3-f57f6139163d/vXvUvT4O9H.json"
+)
 
-# --- 3. API KEY ROTATION LOGIC ---
+# ---------------- GEMINI RESPONSE ----------------
 def get_gemini_response(prompt):
-    # Fetch your list of keys from Streamlit Secrets
-    api_keys = st.secrets["GEMINI_KEYS"]
-    
+    try:
+        api_keys = st.secrets["GEMINI_KEYS"]
+    except:
+        return "⚠️ API keys not found in Streamlit Secrets."
+
     for key in api_keys:
         try:
             genai.configure(api_key=key)
-            # Using 1.5-flash for maximum stability in 2026
-            model = genai.GenerativeModel('gemini-2.5-flash')
+            model = genai.GenerativeModel("gemini-1.5-flash")
             response = model.generate_content(prompt)
             return response.text
         except Exception as e:
             if "429" in str(e):
-                # If this key is out of quota, it tries the next key automatically
                 continue
             else:
-                return f"⚠️ Technical Error: {e}"
-    
-    return "🚀 All AI channels are busy right now. Please wait 30 seconds and try again!"
+                return f"⚠️ Error: {e}"
 
-# --- 4. SIDEBAR (Student Profile & 3D Element) ---
+    return "🚀 All AI channels are busy. Please try again in 30 seconds."
+
+# ---------------- SIDEBAR ----------------
 with st.sidebar:
     if lottie_robot:
-        st_lottie(lottie_robot, height=200, key="robot")
-    
-    st.title("🎓 Project Details")
-    st.info("**Student Name:** Ankit Gupta, Khushi , Ayush")
-    st.info("**Course:** BCA")
-    st.info("**Project:** AI Chatbot")
-    
+        st_lottie(lottie_robot, height=200)
+
+    st.markdown("## 🎓 Project Details")
+    st.markdown("**Student:** Ankit Gupta")
+    st.markdown("**Course:** BCA")
+    st.markdown("**Project:** AI Chatbot")
+
     st.markdown("---")
-    if st.button("🗑️ Clear Chat History"):
+
+    if st.button("🗑️ Clear Chat"):
         st.session_state.messages = []
         st.rerun()
 
-# --- 5. MAIN CHAT INTERFACE ---
-st.title("🤖 My College AI Assistant")
-st.subheader("BCA Final Year Project")
+# ---------------- MAIN HEADER ----------------
+st.markdown('<div class="chat-title">🤖 My College AI Assistant</div>', unsafe_allow_html=True)
+st.markdown('<div class="chat-subtitle">BCA Final Year AI Project</div>', unsafe_allow_html=True)
 
-# Initialize chat history
+# ---------------- CHAT HISTORY ----------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat history from session state
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 6. CHAT INPUT & EXECUTION ---
-if prompt := st.chat_input("Ask me about BCA, Coding, or Data Science..."):
-    # Display user message
+# ---------------- CHAT INPUT ----------------
+if prompt := st.chat_input("Ask me about BCA, Coding, Python, Data Science..."):
+    
+    # Show user message
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # Generate and display assistant response
+    # Generate assistant response
     with st.chat_message("assistant"):
-        with st.spinner("🔄 Rotating keys & generating response..."):
-            ai_response = get_gemini_response(prompt)
-            st.markdown(ai_response)
+        with st.spinner("🤖 Thinking..."):
+            response = get_gemini_response(prompt)
 
-            st.session_state.messages.append({"role": "assistant", "content": ai_response})
+            # Typing animation effect
+            message_placeholder = st.empty()
+            full_response = ""
+            for chunk in response.split():
+                full_response += chunk + " "
+                time.sleep(0.03)
+                message_placeholder.markdown(full_response + "▌")
+            message_placeholder.markdown(full_response)
+
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
