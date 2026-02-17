@@ -97,7 +97,7 @@ with st.sidebar:
         st_lottie(lottie_robot, height=200)
 
     st.markdown("## 🎓 Project Details")
-    st.markdown("**Student:** Ankit Gupta")
+    st.markdown("**Student:** Ankit Gupta, Khush , Ayush")
     st.markdown("**Course:** BCA")
     st.markdown("**Project:** AI Chatbot")
 
@@ -141,4 +141,5 @@ if prompt := st.chat_input("Ask me about BCA, Coding, Python, Data Science..."):
             message_placeholder.markdown(full_response)
 
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+
 
