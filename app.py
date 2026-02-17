@@ -80,7 +80,7 @@ def get_gemini_response(prompt):
     for key in api_keys:
         try:
             genai.configure(api_key=key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             response = model.generate_content(prompt)
             return response.text
         except Exception as e:
@@ -141,3 +141,4 @@ if prompt := st.chat_input("Ask me about BCA, Coding, Python, Data Science..."):
             message_placeholder.markdown(full_response)
 
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+
