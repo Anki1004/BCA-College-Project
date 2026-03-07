@@ -1,41 +1,63 @@
 """
 ╔══════════════════════════════════════════════════════════════════════════╗
-║                     BCA AI STUDY ASSISTANT                                ║
-║                  Advanced AI Learning Platform                            ║
-║              Powered by Google Gemini API                                 ║
+║                 BCA AI ACADEMIC PLATFORM - v3.0                          ║
+║              Advanced AI-Powered Learning Companion                       ║
+║                                                                          ║
+║  Multi-Model System | Voice Assistant | Memory System | Smart Router    ║
+║  Code Executor | Assignment Checker | Study Recommender | Analytics     ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
 Author: BCA AI Team
-Version: 2.0 - Enhanced Edition
+Version: 3.0 - Enterprise Edition
 Date: March 2026
 
-Features:
-- AI Chat with Smart Prompts
-- PDF Study Chat
-- Quiz Generator
-- Code Helper/Debugger
-- Notes Summarizer
-- Assignment Generator
-- Study Planner
-- Exam Paper Generator
-- Dashboard with Analytics
-- Responsive Design (Mobile/Tablet/Desktop)
+---
+ARCHITECTURE OVERVIEW:
+1. CONFIG - Application configuration and constants
+2. UTILITIES - Helper functions and data processing
+3. AI ENGINE - Multi-model AI integration
+4. MEMORY SYSTEM - User profile and learning history
+5. SMART TOOLS - Tool detection and routing
+6. VOICE ASSISTANT - Speech-to-text and text-to-speech
+7. CODE EXECUTOR - Safe Python code execution sandbox
+8. ASSIGNMENT CHECKER - Academic feedback system
+9. STUDY RECOMMENDER - Personalized learning paths
+10. UI PAGES - User interface components
+11. MAIN ROUTER - Page navigation and rendering
+---
 """
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                            1. IMPORTS & SETUP
+# ═══════════════════════════════════════════════════════════════════════════
 
 import json
 import re
 import time
-import warnings
+import subprocess
+import io
+import sys
 from datetime import datetime, timedelta
 from io import BytesIO
 from urllib import error as urlerror
 from urllib import request as urlrequest
-
-# Suppress deprecation warning for google.generativeai
-warnings.filterwarnings('ignore', category=FutureWarning, module='google.generativeai')
+from contextlib import redirect_stdout, redirect_stderr
 
 import google.generativeai as genai
 import streamlit as st
+
+# Optional voice libraries - gracefully handled if missing
+try:
+    import speech_recognition as sr
+    VOICE_AVAILABLE = True
+except ImportError:
+    VOICE_AVAILABLE = False
+
+try:
+    import pyttsx3
+    TEXT_TO_SPEECH_AVAILABLE = True
+except ImportError:
+    TEXT_TO_SPEECH_AVAILABLE = False
 
 # PDF processing
 try:
@@ -46,19 +68,18 @@ except ImportError:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#                            PAGE CONFIGURATION
+#                        2. PAGE CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(
-    page_title="BCA AI Assistant - Advanced Learning Platform",
-    page_icon="🤖",
+    page_title="BCA AI Academic Platform",
+    page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════
-#                         RESPONSIVE CUSTOM CSS
+#                     3. RESPONSIVE CUSTOM CSS
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.markdown(
@@ -85,6 +106,15 @@ st.markdown(
     box-sizing: border-box;
 }
 code, pre { font-family: 'JetBrains Mono', monospace !important; }
+
+/* Fix Streamlit material icons showing as text */
+.material-symbols-rounded,
+.material-symbols-outlined,
+[data-testid="stIconMaterial"] {
+    font-family: 'Material Symbols Rounded' !important;
+    font-style: normal;
+    -webkit-font-smoothing: antialiased;
+}
 
 html, body, .stApp {
     background: var(--bg-primary) !important;
@@ -158,7 +188,6 @@ html, body, .stApp {
     animation: typing 1.4s infinite;
 }
 
-/* Chat Messages - Responsive */
 [data-testid="stChatMessageContent"] {
     background: var(--bg-card) !important;
     border: 1px solid var(--border) !important;
@@ -172,7 +201,6 @@ html, body, .stApp {
     overflow-wrap: break-word !important;
 }
 
-/* Code Blocks - Horizontal Scroll */
 pre {
     background: #0a1628 !important;
     border: 1px solid rgba(56,189,248,0.2) !important;
@@ -189,15 +217,21 @@ code {
     word-break: break-all !important;
 }
 
-/* Sidebar */
 [data-testid="stSidebar"] {
     background: var(--bg-secondary) !important;
     border-right: 1px solid var(--border) !important;
 }
 
-[data-testid="stSidebar"] * { color: var(--text-primary) !important; }
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span:not(.material-symbols-rounded):not(.material-symbols-outlined),
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] div:not([data-testid="stIconMaterial"]),
+[data-testid="stSidebar"] li,
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 {
+    color: var(--text-primary) !important;
+}
 
-/* Buttons - Responsive */
 .stButton > button {
     background: linear-gradient(135deg, #6366f1, #38bdf8) !important;
     color: white !important;
@@ -216,7 +250,6 @@ code {
     opacity: 0.95 !important;
 }
 
-/* Input Fields - Responsive */
 .stSelectbox > div > div,
 .stTextArea textarea,
 .stTextInput input {
@@ -232,7 +265,6 @@ code {
     font-size: clamp(11px, 2vw, 13px) !important;
 }
 
-/* File Uploader */
 [data-testid="stFileUploader"] {
     background: var(--bg-card) !important;
     border: 1px solid var(--border) !important;
@@ -240,7 +272,6 @@ code {
     padding: 12px !important;
 }
 
-/* Metrics - Responsive */
 [data-testid="stMetric"] {
     background: var(--bg-card) !important;
     border: 1px solid var(--border) !important;
@@ -252,13 +283,13 @@ code {
     color: #64748b !important; 
     font-size: clamp(10px, 2vw, 12px) !important; 
 }
+
 [data-testid="stMetricValue"] { 
     color: #38bdf8 !important; 
     font-size: clamp(18px, 4vw, 22px) !important; 
     font-weight: 700 !important; 
 }
 
-/* Chat Input - Always Visible */
 [data-testid="stChatInput"] {
     position: sticky !important;
     bottom: 0 !important;
@@ -267,88 +298,30 @@ code {
     padding: 10px 0 !important;
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.3); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(56,189,248,0.6); }
 
-/* Info/Warning/Success boxes */
-.stAlert {
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-}
+.stAlert { word-wrap: break-word !important; overflow-wrap: break-word !important; }
 
-/* ═══════════════════════════════════════════════════════════
-   RESPONSIVE BREAKPOINTS - MEDIA QUERIES
-   ═══════════════════════════════════════════════════════════ */
-
-/* Desktop - 1200px and above */
-@media (min-width: 1200px) {
-    .hero-title { font-size: 52px; }
-    .hero-subtitle { font-size: 15px; }
-    [data-testid="stSidebar"] { min-width: 280px !important; }
-}
-
-/* Tablet - 768px to 1199px */
-@media (max-width: 1199px) and (min-width: 768px) {
+/* RESPONSIVE BREAKPOINTS */
+@media (max-width: 1199px) {
     .hero-title { font-size: 38px; }
-    .hero-subtitle { font-size: 13px; letter-spacing: 1.5px; }
-    .hero-header { padding: 20px 15px 15px; }
-    [data-testid="stChatMessageContent"] { padding: 12px 16px !important; }
-    [data-testid="stMetric"] { padding: 12px !important; }
-    .stButton > button { padding: 8px 12px !important; }
+    .hero-subtitle { font-size: 13px; }
 }
 
-/* Mobile - 480px to 767px */
-@media (max-width: 767px) and (min-width: 480px) {
+@media (max-width: 767px) {
     .hero-title { font-size: 28px; }
-    .hero-subtitle { font-size: 11px; letter-spacing: 1px; }
-    .hero-header { padding: 15px 10px 10px; }
-    [data-testid="stChatMessageContent"] { 
-        padding: 10px 14px !important; 
-        border-radius: 12px !important;
-    }
-    pre { padding: 12px !important; font-size: 11px !important; }
-    [data-testid="stMetric"] { padding: 10px !important; }
-    .stButton > button { padding: 8px 10px !important; font-size: 12px !important; }
-    [data-testid="stSidebar"] { min-width: 200px !important; }
+    .hero-subtitle { font-size: 11px; }
+    [data-testid="stChatMessageContent"] { padding: 10px 14px !important; }
 }
 
-/* Small Mobile - Below 480px */
 @media (max-width: 479px) {
-    .hero-title { font-size: 24px; letter-spacing: -0.5px; }
-    .hero-subtitle { 
-        font-size: 9px; 
-        letter-spacing: 0.5px;
-        line-height: 1.4;
-    }
-    .hero-header { padding: 12px 8px 8px; }
-    .status-dot { width: 6px; height: 6px; }
-    [data-testid="stChatMessageContent"] { 
-        padding: 8px 12px !important; 
-        border-radius: 10px !important;
-        font-size: 13px !important;
-    }
-    pre { 
-        padding: 10px !important; 
-        font-size: 10px !important;
-        border-radius: 8px !important;
-    }
-    code { font-size: 10px !important; }
-    [data-testid="stMetric"] { 
-        padding: 8px !important;
-        border-radius: 8px !important;
-    }
-    [data-testid="stMetricLabel"] { font-size: 9px !important; }
-    [data-testid="stMetricValue"] { font-size: 16px !important; }
-    .stButton > button { 
-        padding: 6px 8px !important; 
-        font-size: 11px !important;
-        border-radius: 8px !important;
-    }
-    .stTextArea textarea { font-size: 11px !important; }
-    [data-testid="stSidebar"] { min-width: 180px !important; }
+    .hero-title { font-size: 22px; letter-spacing: -0.5px; }
+    .hero-subtitle { font-size: 9px; }
+    [data-testid="stChatMessageContent"] { padding: 8px 12px !important; font-size: 13px !important; }
+    .stButton > button { padding: 6px 8px !important; font-size: 11px !important; }
 }
 </style>
 """,
@@ -357,23 +330,27 @@ code {
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#                         APPLICATION CONFIGURATION
+#                        4. APPLICATION CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════
 
 NAV_ITEMS = [
-    "Home",
-    "AI Chat",
+    "🏠 Home",
+    "💬 AI Chat",
     "📄 PDF Study Chat",
-    "Quiz Generator",
-    "Code Helper",
-    "Notes Summarizer",
-    "📝 Assignment Generator",
+    "🧩 Quiz Generator",
+    "🐛 Code Helper",
+    "📝 Notes Summarizer",
+    "✍️ Assignment Generator",
+    "✓ Assignment Checker",
     "📅 Study Planner",
     "🧾 Exam Paper Generator",
-    "Dashboard",
+    "💻 Code Runner",
+    "🎓 Study Recommender",
+    "📊 Dashboard",
 ]
 
 STUDY_MODES = [
+    "General Study Assistant",
     "Programming Helper",
     "Code Debugger",
     "Quiz Generator",
@@ -381,22 +358,27 @@ STUDY_MODES = [
     "Assignment Writer",
     "Study Planner",
     "Exam Prep",
-    "General Study Assistant",
 ]
 
-GEMINI_MODEL_OPTIONS = [
+# AI MODEL CONFIGURATIONS
+GEMINI_MODELS = [
     "gemini-1.5-flash",
     "gemini-1.5-pro",
     "gemini-2.0-flash",
 ]
 
-GROQ_MODEL_OPTIONS = [
-    "llama-3.1-8b-instant",
-    "llama-3.3-70b-versatile",
-    "mixtral-8x7b-32768",
+CLAUDE_MODELS = [
+    "claude-sonnet-4-20250514",
+    "claude-3-5-haiku-20241022",
 ]
 
-# Enhanced Academic Prompts for Better Educational Content
+AI_MODELS_CONFIG = {
+    "Gemini Flash": {"provider": "gemini", "model": "gemini-1.5-flash"},
+    "Gemini Pro": {"provider": "gemini", "model": "gemini-1.5-pro"},
+    "Claude Sonnet": {"provider": "claude", "model": "claude-sonnet-4-20250514"},
+    "Claude Haiku": {"provider": "claude", "model": "claude-3-5-haiku-20241022"},
+}
+
 MODE_PROMPTS = {
     "Programming Helper": """You are an expert programming tutor for BCA students.
 - Explain concepts with clarity and practical examples
@@ -491,70 +473,70 @@ QUICK_PROMPTS = {
     "Programming Helper": [
         "Explain recursion with Python example",
         "Difference between list and tuple",
-        "What is time complexity? Explain with examples",
-        "OOP pillars explained simply",
+        "What is time complexity?",
+        "OOP pillars explained",
     ],
     "Code Debugger": [
         "Find bug in this loop",
-        "Explain this Python traceback error",
+        "Explain Python traceback",
         "Why IndexError occurs?",
-        "Debug my SQL query",
+        "Debug SQL query",
     ],
     "Quiz Generator": [
-        "Create quiz on DBMS normalization",
-        "Generate MCQs on OS scheduling",
-        "Quiz on C programming basics",
-        "Python OOP MCQs",
+        "DBMS normalization MCQs",
+        "OS scheduling quiz",
+        "C programming basics",
+        "Python OOP questions",
     ],
     "Notes Summarizer": [
-        "Summarize OS process scheduling",
-        "DBMS normalization quick notes",
-        "Computer Networks revision points",
+        "Summarize OS scheduling",
+        "DBMS normalization notes",
+        "Networks revision points",
         "Software lifecycle summary",
     ],
     "Assignment Writer": [
-        "Write assignment on Cloud Computing",
-        "DBMS assignment on normalization",
-        "OS assignment on deadlock",
-        "Software Engineering lifecycle assignment",
+        "Cloud Computing assignment",
+        "DBMS normalization topic",
+        "OS deadlock writeup",
+        "Software lifecycle assignment",
     ],
     "Study Planner": [
-        "Plan for DBMS exam in 15 days",
-        "Create study schedule for semester",
+        "DBMS exam in 15 days",
+        "Semester study schedule",
         "Revision plan for all subjects",
-        "Daily study routine suggestion",
+        "Weekly study routine",
     ],
     "Exam Prep": [
-        "Generate DBMS exam paper",
-        "OS mid-semester question paper",
-        "Python practical exam questions",
-        "Data Structures exam paper",
+        "Generate DBMS exam",
+        "OS question paper",
+        "Python exam questions",
+        "Data Structures test",
     ],
     "General Study Assistant": [
-        "Explain ACID properties with examples",
-        "Compiler vs Interpreter difference",
-        "How to prepare for BCA exams?",
+        "Explain ACID properties",
+        "Compiler vs Interpreter",
+        "How to prepare for exams?",
         "TCP vs UDP comparison",
     ],
 }
 
-
 # ═══════════════════════════════════════════════════════════════════════════
-#                         SESSION STATE INITIALIZATION
+#                    5. SESSION STATE INITIALIZATION
 # ═══════════════════════════════════════════════════════════════════════════
 
 def init_session() -> None:
-    """Initialize all session state variables with defaults"""
+    """Initialize all session state variables"""
     defaults = {
-        # Chat & Navigation
+        # Navigation & Chat
         "messages": [],
         "mode": "General Study Assistant",
-        "nav": "Home",
+        "nav": "🏠 Home",
         
-        # Model Configuration
-        "ai_provider": "Gemini",
-        "model": GEMINI_MODEL_OPTIONS[0],
-        "groq_model": GROQ_MODEL_OPTIONS[0],
+        # AI Configuration
+        "ai_model_name": "Gemini Flash",
+        "ai_provider": "gemini",
+        "gemini_model": "gemini-1.5-flash",
+        "claude_model": "claude-sonnet-4-20250514",
         "temperature": 0.5,
         "typing_speed": 0.01,
         "show_timestamps": True,
@@ -564,6 +546,13 @@ def init_session() -> None:
         "questions_asked": 0,
         "topics_studied": [],
         
+        # User Memory & Profile
+        "user_name": None,
+        "user_email": None,
+        "preferred_subjects": [],
+        "learning_history": [],
+        "past_questions": [],
+        
         # Feature Usage Analytics
         "feature_usage": {
             "AI Chat": 0,
@@ -572,8 +561,11 @@ def init_session() -> None:
             "Code Helper": 0,
             "Notes Summarizer": 0,
             "Assignment Generator": 0,
+            "Assignment Checker": 0,
             "Study Planner": 0,
             "Exam Paper Generator": 0,
+            "Code Runner": 0,
+            "Study Recommender": 0,
         },
         
         # PDF Study Chat
@@ -581,13 +573,21 @@ def init_session() -> None:
         "pdf_filename": None,
         "pdf_chat_history": [],
         
-        # User Content
-        "user_notes": "",
-        "code_scratch": "",
+        # Code Runner
+        "code_output": "",
+        "code_error": "",
+        
+        # Assignment Feedback
+        "assignment_feedback": None,
+        
+        # Voice
+        "voice_enabled": VOICE_AVAILABLE and TEXT_TO_SPEECH_AVAILABLE,
+        "last_voice_input": None,
         
         # Theme
         "theme": "dark",
     }
+    
     for key, val in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = val
@@ -597,8 +597,17 @@ init_session()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#                              UTILITY FUNCTIONS
+#                        6. UTILITY FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════
+
+def safe_log(message: str, category: str = "info") -> None:
+    """Safe logging with error handling"""
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = f"[{timestamp}] [{category.upper()}] {message}"
+    except Exception:
+        pass
+
 
 def unique_topics(topics: list[str]) -> list[str]:
     """Remove duplicates while preserving order"""
@@ -626,10 +635,21 @@ def extract_topics(text: str) -> list[str]:
 
 
 def update_study_tracking(user_text: str) -> None:
-    """Update session tracking metrics"""
+    """Update session tracking metrics and memory"""
     st.session_state.questions_asked += 1
     new_topics = extract_topics(user_text)
     st.session_state.topics_studied = unique_topics(st.session_state.topics_studied + new_topics)
+    
+    # Store in learning history
+    st.session_state.learning_history.append({
+        "timestamp": datetime.now().isoformat(),
+        "question": user_text[:100],
+        "mode": st.session_state.mode,
+        "topics": new_topics,
+    })
+    
+    if user_text not in st.session_state.past_questions:
+        st.session_state.past_questions.append(user_text[:200])
 
 
 def session_duration_text() -> str:
@@ -649,10 +669,10 @@ def extract_code_block(text: str) -> tuple[str | None, str | None]:
         language = fence_match.group(1).strip() if fence_match.group(1) else None
         code = fence_match.group(2).strip()
         return language, code
-
+    
     if "\n" in text and any(sym in text for sym in ["def ", "class ", "{", "}", ";", "import ", "#include"]):
         return None, text.strip()
-
+    
     return None, None
 
 
@@ -660,7 +680,7 @@ def detect_language(code: str, hinted_language: str | None = None) -> str:
     """Detect programming language from code"""
     if hinted_language:
         return hinted_language.lower()
-
+    
     patterns = {
         "python": [r"\bdef\b", r"\bimport\b", r"print\("],
         "java": [r"\bpublic class\b", r"System\.out\.println", r"\bstatic void main\b"],
@@ -669,17 +689,17 @@ def detect_language(code: str, hinted_language: str | None = None) -> str:
         "javascript": [r"\bfunction\b", r"console\.log\(", r"=>"],
         "sql": [r"\bSELECT\b", r"\bINSERT\b", r"\bUPDATE\b", r"\bFROM\b"],
     }
-
+    
     for lang, checks in patterns.items():
         if any(re.search(check, code, flags=re.IGNORECASE) for check in checks):
             return lang
     return "text"
 
 
-def extract_pdf_text(uploaded_file) -> tuple[str, str]:
-    """Extract text from uploaded PDF file"""
+def extract_pdf_text(uploaded_file) -> tuple[str | None, str | None]:
+    """Extract text from PDF file"""
     if not PDF_AVAILABLE:
-        return None, "PyPDF library not installed. Run: pip install pypdf"
+        return None, "PyPDF not installed. Run: pip install pypdf"
     
     try:
         pdf_reader = PdfReader(BytesIO(uploaded_file.read()))
@@ -693,7 +713,7 @@ def extract_pdf_text(uploaded_file) -> tuple[str, str]:
         full_text = "\n\n".join(text_content)
         
         if not full_text.strip():
-            return None, "No text could be extracted from PDF"
+            return None, "No text found in PDF"
         
         return full_text, None
     except Exception as e:
@@ -701,7 +721,7 @@ def extract_pdf_text(uploaded_file) -> tuple[str, str]:
 
 
 def chunk_text(text: str, max_chunk_size: int = 8000) -> list[str]:
-    """Simple text chunking for large PDF content"""
+    """Simple text chunking"""
     if len(text) <= max_chunk_size:
         return [text]
     
@@ -728,7 +748,7 @@ def chunk_text(text: str, max_chunk_size: int = 8000) -> list[str]:
 
 
 def find_relevant_pdf_content(pdf_text: str, query: str, max_length: int = 6000) -> str:
-    """Find most relevant section of PDF for the query"""
+    """Find most relevant PDF section"""
     query_lower = query.lower()
     query_words = set(query_lower.split())
     
@@ -737,14 +757,12 @@ def find_relevant_pdf_content(pdf_text: str, query: str, max_length: int = 6000)
     if len(chunks) <= 1:
         return pdf_text[:max_length]
     
-    # Score each chunk based on query word overlap
     chunk_scores = []
     for chunk in chunks:
         chunk_lower = chunk.lower()
         score = sum(1 for word in query_words if word in chunk_lower and len(word) > 3)
         chunk_scores.append((score, chunk))
     
-    # Sort by relevance and take top chunks
     chunk_scores.sort(reverse=True, key=lambda x: x[0])
     relevant_chunks = [chunk for score, chunk in chunk_scores[:3] if score > 0]
     
@@ -756,9 +774,25 @@ def find_relevant_pdf_content(pdf_text: str, query: str, max_length: int = 6000)
 
 
 def track_feature_usage(feature_name: str) -> None:
-    """Track which features are being used"""
-    if feature_name in st.session_state.feature_usage:
-        st.session_state.feature_usage[feature_name] += 1
+    """Track feature usage"""
+    feature_mapping = {
+        "ai_chat": "AI Chat",
+        "pdf": "PDF Study Chat",
+        "quiz": "Quiz Generator",
+        "code": "Code Helper",
+        "notes": "Notes Summarizer",
+        "assignment": "Assignment Generator",
+        "checker": "Assignment Checker",
+        "planner": "Study Planner",
+        "exam": "Exam Paper Generator",
+        "runner": "Code Runner",
+        "recommender": "Study Recommender",
+    }
+    
+    for key, mapped_name in feature_mapping.items():
+        if key in feature_name.lower() and mapped_name in st.session_state.feature_usage:
+            st.session_state.feature_usage[mapped_name] += 1
+            break
 
 
 def get_most_used_features() -> list[tuple[str, int]]:
@@ -770,18 +804,23 @@ def get_most_used_features() -> list[tuple[str, int]]:
 def build_system_prompt(mode: str) -> str:
     """Build system prompt based on mode"""
     mode_prompt = MODE_PROMPTS.get(mode, MODE_PROMPTS["General Study Assistant"])
+    
+    user_context = ""
+    if st.session_state.user_name:
+        user_context = f"\nNote: The student's name is {st.session_state.user_name}."
+    
     return f"""
 {BASE_ACADEMIC_CONTEXT}
 
 Mode Instruction:
 {mode_prompt}
 
-{RESPONSE_FORMAT_GUIDELINES}
+{RESPONSE_FORMAT_GUIDELINES}{user_context}
 """.strip()
 
 
 def build_mode_specific_user_prompt(user_prompt: str, mode: str) -> str:
-    """Enhance user prompt based on study mode"""
+    """Enhance user prompt based on mode"""
     language_hint, code = extract_code_block(user_prompt)
 
     if mode == "Quiz Generator":
@@ -800,7 +839,7 @@ def build_mode_specific_user_prompt(user_prompt: str, mode: str) -> str:
             detected = detect_language(code, language_hint)
             return (
                 f"Student submitted {detected} code for debugging.\n"
-                "Do the following in order:\n"
+                "Do the following:\n"
                 "1. Detected Language\n"
                 "2. Syntax/logic errors\n"
                 "3. Why the error happens\n"
@@ -808,65 +847,53 @@ def build_mode_specific_user_prompt(user_prompt: str, mode: str) -> str:
                 "5. Best practice tip\n\n"
                 f"Code:\n```{detected}\n{code}\n```"
             )
-        return (
-            "The student is in Code Debugger mode. Ask for the code if missing, then provide step-by-step debugging support.\n"
-            f"Student message: {user_prompt}"
-        )
+        return f"Debug this code:\n{user_prompt}"
 
     if mode == "Notes Summarizer":
         return (
-            "Summarize the provided notes into exam-ready bullets with clear headings.\n"
-            "Also include: key definitions, important formulas/points, and quick revision checklist.\n"
-            f"\nStudent notes/request:\n{user_prompt}"
+            "Summarize into exam-ready bullets with headings.\n"
+            "Include: definitions, formulas, quick checklist.\n"
+            f"\nNotes:\n{user_prompt}"
         )
     
     if mode == "Assignment Writer":
         return (
-            "Create a well-structured college assignment on the given topic.\n"
-            "Include:\n"
-            "1. Title\n"
-            "2. Introduction (brief overview)\n"
-            "3. Main body with clear headings and subheadings\n"
-            "4. (conclusion summary)\n"
-            "5. References (suggest 3-4 reference sources)\n"
-            "Use formal academic language suitable for BCA students.\n"
-            f"\nAssignment Topic: {user_prompt}"
+            "Create college assignment with:\n"
+            "1. Title\n2. Introduction\n3. Body with headings\n4. Conclusion\n5. References\n"
+            "Use formal academic language.\n"
+            f"\nTopic: {user_prompt}"
         )
     
     if mode == "Study Planner":
         return (
-            "Create a realistic day-by-day study plan based on the student's requirements.\n"
-            "Include:\n"
-            "- Daily topics to cover\n"
-            "- Time allocation suggestions\n"
-            "- Revision days\n"
-            "- Exam preparation strategy\n"
-            "- Motivational tips\n"
-            f"\nStudent Requirements: {user_prompt}"
+            "Create day-by-day study plan with:\n"
+            "- Daily topics\n- Time allocation\n- Revision days\n- Motivation tips\n"
+            f"\nRequirements: {user_prompt}"
         )
     
     if mode == "Exam Prep":
         return (
-            "Generate a realistic university exam paper format for BCA students.\n"
-            "Include:\n"
-            "- Section A: Multiple Choice Questions (5 questions, 1 mark each)\n"
-            "- Section B: Short Answer Questions (5 questions, 3 marks each)\n"
-            "- Section C: Long Answer Questions (3 questions, 5 marks each)\n"
-            "- Total: 40 marks\n"
-            "- Time: 2 hours\n"
-            "Make questions exam-oriented and syllabus-based.\n"
-            f"\nSubject/Topic: {user_prompt}"
+            "Generate exam paper with:\n"
+            "- Section A: 5 MCQs (1 mark each)\n"
+            "- Section B: 5 Short answers (3 marks each)\n"
+            "- Section C: 3 Long answers (5 marks each)\n"
+            "- Total: 40 marks, 2 hours\n"
+            f"\nSubject: {user_prompt}"
         )
 
     return user_prompt
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#                        7. AI ENGINE - MULTI-MODEL
+# ═══════════════════════════════════════════════════════════════════════════
+
 def get_gemini_response(user_prompt: str, mode: str, history: list[dict] | None = None, pdf_context: str | None = None) -> str:
-    """Get response from Gemini AI"""
+    """Get response from Gemini"""
     try:
         api_keys = st.secrets["GEMINI_KEYS"]
     except Exception:
-        return "⚠️ API keys not found. Please configure `GEMINI_KEYS` in Streamlit secrets."
+        return "❌ **Error:** Gemini API keys not configured in secrets."
 
     if not isinstance(api_keys, list):
         api_keys = [api_keys]
@@ -874,33 +901,30 @@ def get_gemini_response(user_prompt: str, mode: str, history: list[dict] | None 
     system_prompt = build_system_prompt(mode)
     mode_prompt = build_mode_specific_user_prompt(user_prompt, mode)
 
-    # Build context from history
     context = ""
     if history:
         recent = history[-8:]
         if recent:
             lines = []
             for msg in recent:
-                role = "Student" if msg["role"] == "user" else "Assistant"
-                lines.append(f"{role}: {msg['content'][:350]}")
+                role = "Student" if msg["role"] == "user" else "AI"
+                lines.append(f"{role}: {msg['content'][:200]}")
             context = "\n".join(lines)
     
-    # Add PDF context if available
     pdf_section = ""
     if pdf_context:
-        pdf_section = f"\n\nREFERENCE DOCUMENT CONTENT:\n{pdf_context}\n"
+        pdf_section = f"\n\nREFERENCE DOCUMENT:\n{pdf_context}\n"
 
     full_prompt = (
         f"SYSTEM:\n{system_prompt}\n\n"
-        f"RECENT CONTEXT:\n{context if context else 'No prior context.'}\n"
+        f"CONTEXT:\n{context if context else 'None'}\n"
         f"{pdf_section}"
-        f"STUDENT QUERY:\n{mode_prompt}"
+        f"QUERY:\n{mode_prompt}"
     )
 
-    models_to_try = [st.session_state.model] + [m for m in GEMINI_MODEL_OPTIONS if m != st.session_state.model]
+    models_to_try = [st.session_state.gemini_model] + [m for m in GEMINI_MODELS if m != st.session_state.gemini_model]
     last_error = None
 
-    # Try each API key and model fallback for better reliability.
     for key in api_keys:
         genai.configure(api_key=key)
         for model_name in models_to_try:
@@ -913,34 +937,27 @@ def get_gemini_response(user_prompt: str, mode: str, history: list[dict] | None 
                         max_output_tokens=2048,
                     ),
                 )
-                st.session_state.model = model_name
+                st.session_state.gemini_model = model_name
                 return response.text.strip() if response.text else "No response generated."
             except Exception as err:
                 last_error = err
                 msg = str(err).lower()
 
-                # Model not supported/not found: try next model.
                 if "not found" in msg or "404" in msg or "unsupported" in msg:
                     continue
-
-                # Quota/rate/API-key level issues: move to next API key.
-                if "429" in msg or "quota" in msg or "invalid" in msg or "permission" in msg:
+                if "429" in msg or "quota" in msg or "invalid" in msg:
                     break
-
-                # For other transient server issues, try next model/key fallback chain.
                 continue
 
-    if last_error:
-        return f"⚠️ Error: {last_error}"
-    return "🚀 All API keys are busy or exhausted. Please try again shortly."
+    return f"❌ **Error:** All API attempts failed. Try again shortly."
 
 
-def get_groq_response(user_prompt: str, mode: str, history: list[dict] | None = None, pdf_context: str | None = None) -> str:
-    """Get response from Groq API using OpenAI-compatible chat completions."""
+def get_claude_response(user_prompt: str, mode: str, history: list[dict] | None = None, pdf_context: str | None = None) -> str:
+    """Get response from Claude (Anthropic) API"""
     try:
-        groq_key = st.secrets["GROQ_API_KEY"]
+        claude_key = st.secrets["CLAUDE_API_KEY"]
     except Exception:
-        return "⚠️ GROQ_API_KEY not found in Streamlit secrets."
+        return "❌ **Error:** Claude API key not configured in secrets."
 
     system_prompt = build_system_prompt(mode)
     mode_prompt = build_mode_specific_user_prompt(user_prompt, mode)
@@ -951,50 +968,53 @@ def get_groq_response(user_prompt: str, mode: str, history: list[dict] | None = 
         if recent:
             lines = []
             for msg in recent:
-                role = "Student" if msg["role"] == "user" else "Assistant"
-                lines.append(f"{role}: {msg['content'][:350]}")
+                role = "Student" if msg["role"] == "user" else "AI"
+                lines.append(f"{role}: {msg['content'][:200]}")
             context = "\n".join(lines)
 
     pdf_section = ""
     if pdf_context:
-        pdf_section = f"\n\nREFERENCE DOCUMENT CONTENT:\n{pdf_context}\n"
+        pdf_section = f"\n\nREFERENCE DOCUMENT:\n{pdf_context}\n"
 
     combined_user_content = (
-        f"RECENT CONTEXT:\n{context if context else 'No prior context.'}\n"
+        f"CONTEXT:\n{context if context else 'None'}\n"
         f"{pdf_section}"
-        f"STUDENT QUERY:\n{mode_prompt}"
+        f"QUERY:\n{mode_prompt}"
     )
 
-    models_to_try = [st.session_state.groq_model] + [m for m in GROQ_MODEL_OPTIONS if m != st.session_state.groq_model]
+    models_to_try = [st.session_state.claude_model] + [m for m in CLAUDE_MODELS if m != st.session_state.claude_model]
     last_error = None
 
     for model_name in models_to_try:
         payload = {
             "model": model_name,
+            "system": system_prompt,
             "messages": [
-                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": combined_user_content},
             ],
-            "temperature": st.session_state.temperature,
             "max_tokens": 2048,
+            "temperature": st.session_state.temperature,
         }
 
         req = urlrequest.Request(
-            url="https://api.groq.com/openai/v1/chat/completions",
+            url="https://api.anthropic.com/v1/messages",
             data=json.dumps(payload).encode("utf-8"),
             headers={
-                "Authorization": f"Bearer {groq_key}",
+                "x-api-key": claude_key,
+                "anthropic-version": "2023-06-01",
                 "Content-Type": "application/json",
             },
             method="POST",
         )
 
         try:
-            with urlrequest.urlopen(req, timeout=45) as resp:
+            with urlrequest.urlopen(req, timeout=60) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            content_blocks = data.get("content", [])
+            text_parts = [b.get("text", "") for b in content_blocks if b.get("type") == "text"]
+            content = "\n".join(text_parts).strip()
             if content:
-                st.session_state.groq_model = model_name
+                st.session_state.claude_model = model_name
                 return content
         except urlerror.HTTPError as err:
             last_error = err
@@ -1006,198 +1026,275 @@ def get_groq_response(user_prompt: str, mode: str, history: list[dict] | None = 
             if "model" in lower and ("not found" in lower or "unsupported" in lower):
                 continue
             if err.code in (401, 403):
-                return "⚠️ Groq API key is invalid or unauthorized."
+                return "❌ **Error:** Claude API key is invalid or unauthorized."
             if err.code == 429:
-                return "⚠️ Groq rate limit reached. Please try again shortly."
+                return "⏳ **Rate Limited:** Claude rate limit reached. Try again shortly."
             continue
         except Exception as err:
             last_error = err
             continue
 
-    if last_error:
-        return f"⚠️ Groq error: {last_error}"
-    return "⚠️ Unable to generate response from Groq."
+    return f"❌ **Error:** Unable to generate response. Check API keys."
 
 
 def get_ai_response(user_prompt: str, mode: str, history: list[dict] | None = None, pdf_context: str | None = None) -> str:
-    """Route model call based on selected provider."""
-    if st.session_state.get("ai_provider", "Gemini") == "Groq":
-        return get_groq_response(user_prompt, mode, history, pdf_context)
+    """Route to appropriate AI provider"""
+    if st.session_state.ai_provider == "claude":
+        return get_claude_response(user_prompt, mode, history, pdf_context)
     return get_gemini_response(user_prompt, mode, history, pdf_context)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#                    8. MEMORY SYSTEM - USER PROFILE
+# ═══════════════════════════════════════════════════════════════════════════
+
+def detect_user_info(text: str) -> None:
+    """Detect and store user information from text"""
+    # Simple name detection
+    if "my name is" in text.lower():
+        match = re.search(r"my name is ([a-zA-Z]+)", text, re.IGNORECASE)
+        if match:
+            st.session_state.user_name = match.group(1).capitalize()
+    
+    # Preferred subject detection
+    subjects = ["python", "java", "dbms", "os", "networks", "dsa", "web", "ai"]
+    for subject in subjects:
+        if subject in text.lower() and subject not in [s.lower() for s in st.session_state.preferred_subjects]:
+            st.session_state.preferred_subjects.append(subject.capitalize())
+
+
+def get_user_profile_summary() -> str:
+    """Get user profile summary"""
+    profile = []
+    if st.session_state.user_name:
+        profile.append(f"👤 **Name:** {st.session_state.user_name}")
+    
+    if st.session_state.preferred_subjects:
+        profile.append(f"📚 **Preferred Subjects:** {', '.join(st.session_state.preferred_subjects)}")
+    
+    profile.append(f"❓ **Questions Asked:** {st.session_state.questions_asked}")
+    profile.append(f"📖 **Topics Learned:** {len(st.session_state.topics_studied)}")
+    
+    return "\n".join(profile) if profile else "No profile data yet."
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                    9. SMART TOOL ROUTER - AUTO DETECTION
+# ═══════════════════════════════════════════════════════════════════════════
+
+def detect_tool_from_text(text: str) -> str | None:
+    """Automatically detect which tool the user wants"""
+    text_lower = text.lower()
+    
+    tool_keywords = {
+        "Quiz Generator": ["quiz", "mcq", "questions", "test", "exam question"],
+        "Code Helper": ["debug", "code", "error", "bug", "fix"],
+        "Notes Summarizer": ["summarize", "summary", "notes", "key points", "identify"],
+        "Assignment Writer": ["assignment", "write", "essay", "report"],
+        "Study Planner": ["schedule", "plan", "study plan", "days"],
+        "Exam Prep": ["exam paper", "question paper", "mock exam"],
+    }
+    
+    for tool, keywords in tool_keywords.items():
+        if any(keyword in text_lower for keyword in keywords):
+            return tool
+    
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                    10. VOICE ASSISTANT - SPEECH I/O
+# ═══════════════════════════════════════════════════════════════════════════
+
+def speech_to_text() -> str | None:
+    """Convert speech to text"""
+    if not VOICE_AVAILABLE:
+        return None
+    
+    try:
+        recognizer = sr.Recognizer()
+        with sr.Microphone() as source:
+            st.info("🎤 Listening... speak your question")
+            audio = recognizer.listen(source, timeout=10)
+            text = recognizer.recognize_google(audio)
+            return text
+    except sr.UnknownValueError:
+        st.error("❌ Could not understand audio. Please speak clearly.")
+        return None
+    except sr.RequestError as e:
+        st.error(f"❌ Microphone error: {e}")
+        return None
+    except Exception as e:
+        st.error(f"❌ Voice error: {e}")
+        return None
+
+
+def text_to_speech(text: str) -> None:
+    """Convert text to speech"""
+    if not TEXT_TO_SPEECH_AVAILABLE:
+        st.warning("⚠️ Text-to-speech not available. Install: pip install pyttsx3")
+        return
+    
+    try:
+        engine = pyttsx3.init()
+        engine.setProperty('rate', 150)
+        engine.say(text[:500])  # Limit to first 500 chars
+        engine.runAndWait()
+    except Exception as e:
+        st.error(f"❌ Text-to-speech error: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                    11. CODE EXECUTOR - SANDBOX
+# ═══════════════════════════════════════════════════════════════════════════
+
+def execute_python_code(code: str) -> tuple[str, str]:
+    """Execute Python code safely in a subprocess sandbox"""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env={"PATH": ""},
+        )
+        output = result.stdout or "Code executed successfully."
+        error = result.stderr
+        return output, error
+    except subprocess.TimeoutExpired:
+        return "", "Error: Code execution timed out (10 second limit)."
+    except Exception as e:
+        return "", f"Execution Error: {e}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                    12. ASSIGNMENT CHECKER - FEEDBACK
+# ═══════════════════════════════════════════════════════════════════════════
+
+def check_assignment(assignment_text: str) -> str:
+    """Get AI feedback on assignment"""
+    prompt = f"""
+Analyze this student assignment and provide detailed feedback:
+
+---
+{assignment_text}
+---
+
+Provide feedback on:
+1. **Grammar & Clarity** - Identify errors and suggest improvements
+2. **Structure** - Is it well-organized with clear sections?
+3. **Content Quality** - Is the information accurate and relevant?
+4. **Plagiarism Risk** - No actual plagiarism check, just note suspicious patterns
+5. **Improvements** - 3-5 specific suggestions to enhance the assignment
+6. **Grade Estimate** - What grade does this deserve? (A/B/C/D/E)
+
+Format as a detailed report.
+"""
+    return get_ai_response(prompt, "General Study Assistant")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                    13. STUDY RECOMMENDER
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_study_recommendations() -> str:
+    """Get personalized study recommendations"""
+    studied = st.session_state.topics_studied
+    
+    if not studied:
+        return """
+### 📚 **Getting Started**
+
+Based on BCA curriculum, here's where to start:
+
+1. **Programming Fundamentals** - Python/Java basics
+2. **Data Structures** - Arrays, Linked Lists, Trees, Graphs
+3. **Database Systems** - DBMS basics, SQL
+4. **Operating Systems** - Processes, Threads, Memory Management
+5. **Computer Networks** - TCP/IP, Protocols, Sockets
+
+**Next Steps:**
+- Start with **Programming Helper** mode to learn fundamentals
+- Use **Code Runner** to practice with real code
+- Take **Quizzes** to test your knowledge
+"""
+    
+    recommendations = []
+    
+    # Suggest related topics
+    if "Python" in studied:
+        recommendations.append("**Advanced Python** - OOP, Decorators, Generators")
+    if any(x in studied for x in ["DBMS", "Database"]):
+        recommendations.append("**SQL Optimization** - Indexing, Query Planning")
+    if "Os" in studied:
+        recommendations.append("**Distributed Systems** - Concurrency, Synchronization")
+    if "Networks" in studied:
+        recommendations.append("**Cryptography** - Security Protocols, Encryption")
+    
+    result = f"""
+### 🎯 **Personalized Study Path**
+
+**Topics You've Covered:** {', '.join(studied)}
+
+**Recommended Next Topics:**
+"""
+    
+    for rec in recommendations[:3]:
+        result += f"\n- {rec}"
+    
+    if len(recommendations) < 3:
+        result += "\n- **Advanced Data Structures** - B-Trees, Heaps, Hash Tables"
+        result += "\n- **Software Engineering** - Design Patterns, SDLC"
+        result += "\n- **Web Development** - HTTP, REST APIs, Databases"
+    
+    result += "\n\n💡 **Study Strategy:**\n"
+    result += "1. Master the fundamentals thoroughly\n"
+    result += "2. Always practice with code examples\n"
+    result += "3. Take quizzes to identify weak areas\n"
+    result += "4. Review assignments for real-world application\n"
+    
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                    14. EXPORT & UTILITIES
+# ═══════════════════════════════════════════════════════════════════════════
+
 def export_chat_markdown() -> str:
-    """Export chat history as Markdown"""
+    """Export chat as Markdown"""
     if not st.session_state.messages:
         return ""
 
     lines = [
-        "# BCA AI Assistant - Chat Export",
+        "# BCA AI Platform - Chat Export",
         f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"**Study Mode:** {st.session_state.mode}",
+        f"**AI Model:** {st.session_state.ai_model_name}",
         "---",
         "",
     ]
     for msg in st.session_state.messages:
-        role = "👤 Student" if msg["role"] == "user" else "🤖 Assistant"
+        role = "👤 Student" if msg["role"] == "user" else "🤖 AI"
         ts = msg.get("timestamp", "")
-        lines.append(f"### {role} `{ts}`\n{msg['content']}\n")
+        lines.append(f"### {role}\n{msg['content']}\n")
     return "\n".join(lines)
 
 
 def export_chat_json() -> str:
-    """Export chat history as JSON"""
+    """Export chat as JSON"""
     return json.dumps(
         {
             "exported_at": datetime.now().isoformat(),
             "mode": st.session_state.mode,
+            "ai_model": st.session_state.ai_model_name,
+            "user_name": st.session_state.user_name,
             "messages": st.session_state.messages,
             "questions_asked": st.session_state.questions_asked,
             "topics_studied": st.session_state.topics_studied,
-            "feature_usage": st.session_state.feature_usage,
         },
         indent=2,
     )
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-#                              SIDEBAR NAVIGATION
-# ═══════════════════════════════════════════════════════════════════════════
-
-with st.sidebar:
-    st.markdown(
-        """
-        <div style="text-align:center; padding: 10px 0 20px;">
-            <div style="font-size:40px; margin-bottom:6px;">🤖</div>
-            <div style="font-size:18px; font-weight:700; background: linear-gradient(135deg,#38bdf8,#818cf8);
-                 -webkit-background-clip:text; -webkit-text-fill-color:transparent;">BCA Assistant</div>
-            <div style="font-size:11px; color:#475569; letter-spacing:2px; text-transform:uppercase;">AI Study Companion</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.divider()
-
-    st.markdown("#### 📍 Navigation")
-    st.session_state.nav = st.radio(
-        "Navigation",
-        options=NAV_ITEMS,
-        index=NAV_ITEMS.index(st.session_state.nav) if st.session_state.nav in NAV_ITEMS else 0,
-        label_visibility="collapsed",
-    )
-
-    st.divider()
-
-    st.markdown("#### 🎯 Study Mode")
-    st.session_state.mode = st.selectbox(
-        "Mode",
-        STUDY_MODES,
-        index=STUDY_MODES.index(st.session_state.mode) if st.session_state.mode in STUDY_MODES else 0,
-        label_visibility="collapsed",
-    )
-
-    st.caption("Academic context: AI Study Assistant for BCA students")
-
-    with st.expander("⚙️ Model Settings", expanded=False):
-        st.session_state.ai_provider = st.selectbox(
-            "AI Provider",
-            ["Gemini", "Groq"],
-            index=0 if st.session_state.ai_provider == "Gemini" else 1,
-        )
-
-        if st.session_state.ai_provider == "Gemini":
-            st.session_state.model = st.selectbox(
-                "Gemini Model",
-                GEMINI_MODEL_OPTIONS,
-                index=GEMINI_MODEL_OPTIONS.index(st.session_state.model) if st.session_state.model in GEMINI_MODEL_OPTIONS else 0,
-            )
-        else:
-            st.session_state.groq_model = st.selectbox(
-                "Groq Model",
-                GROQ_MODEL_OPTIONS,
-                index=GROQ_MODEL_OPTIONS.index(st.session_state.groq_model) if st.session_state.groq_model in GROQ_MODEL_OPTIONS else 0,
-            )
-
-        st.session_state.temperature = st.slider(
-            "Temperature",
-            min_value=0.0,
-            max_value=1.0,
-            value=st.session_state.temperature,
-            step=0.1,
-        )
-        st.session_state.typing_speed = st.slider(
-            "Typing Speed",
-            min_value=0.0,
-            max_value=0.08,
-            value=st.session_state.typing_speed,
-            step=0.01,
-        )
-
-    with st.expander("🖥️ Display Settings", expanded=False):
-        st.session_state.show_timestamps = st.checkbox("Show timestamps", value=st.session_state.show_timestamps)
-
-    st.divider()
-    st.markdown("#### 📊 Session Snapshot")
-    a, b = st.columns(2)
-    with a:
-        st.metric("Questions", st.session_state.questions_asked)
-    with b:
-        st.metric("Topics", len(st.session_state.topics_studied))
-    st.caption(f"Duration: {session_duration_text()}")
-
-    st.divider()
-
-    st.markdown("#### 💾 Export Chat")
-    if st.session_state.messages:
-        x, y = st.columns(2)
-        with x:
-            st.download_button(
-                "📄 MD",
-                data=export_chat_markdown(),
-                file_name=f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}.md",
-                mime="text/markdown",
-                use_container_width=True,
-            )
-        with y:
-            st.download_button(
-                "📦 JSON",
-                data=export_chat_json(),
-                file_name=f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-                mime="application/json",
-                use_container_width=True,
-            )
-    else:
-        st.caption("No messages to export yet.")
-
-    if st.button("🗑️ Clear Chat History", use_container_width=True):
-        st.session_state.messages = []
-        st.session_state.questions_asked = 0
-        st.session_state.topics_studied = []
-        st.rerun()
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-#                              MAIN HEADER
-# ═══════════════════════════════════════════════════════════════════════════
-
-st.markdown(
-    f"""
-<div class="hero-header">
-    <div class="hero-title">🤖 BCA AI Study Assistant</div>
-    <div class="hero-subtitle">
-        <span class="status-dot"></span>
-        Powered by Google Gemini · Active Mode: {st.session_state.mode}
-    </div>
-</div>
-""",
-    unsafe_allow_html=True,
-)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-#                              HELPER FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════
 
 def add_chat_message(role: str, content: str) -> None:
     """Add message to chat history"""
@@ -1221,12 +1318,13 @@ def render_assistant_response(prompt: str, mode: str, pdf_context: str | None = 
 
     if speed > 0:
         words = response.split()
-        for idx, word in enumerate(words):
-            final_text += word + " "
-            if idx % 3 == 0:
-                placeholder.markdown(final_text + "<span class='typing-indicator'>▌</span>", unsafe_allow_html=True)
-                time.sleep(speed)
-        placeholder.markdown(final_text.strip())
+        batch_size = 5
+        for idx in range(0, len(words), batch_size):
+            final_text = " ".join(words[:idx + batch_size])
+            placeholder.markdown(final_text + " ▌")
+            time.sleep(speed * batch_size)
+        placeholder.markdown(response)
+        final_text = response
     else:
         placeholder.markdown(response)
         final_text = response
@@ -1235,127 +1333,301 @@ def render_assistant_response(prompt: str, mode: str, pdf_context: str | None = 
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#                              UI PAGES
+#                        15. SIDEBAR NAVIGATION
 # ═══════════════════════════════════════════════════════════════════════════
 
-def page_home() -> None:
-    """Home page with overview"""
-    st.markdown("### 🏠 Home")
+with st.sidebar:
     st.markdown(
         """
-        <div style="background: rgba(56,189,248,0.05); border: 1px solid rgba(56,189,248,0.15);
-             border-radius: 16px; padding: 18px; margin-bottom: 16px;">
-            <div style="font-size: 16px; font-weight: 700; color: #38bdf8; margin-bottom: 8px;">
-                📚 Advanced AI Learning Platform for BCA Students
-            </div>
-            <div style="font-size: 13px; color: #94a3b8; line-height: 1.8;">
-                Your all-in-one study companion powered by Google Gemini AI. Switch between study modes 
-                for tutoring, debugging, quizzes, assignments, study planning, and exam preparation.
-                Upload PDFs to chat with your study materials!
-            </div>
+        <div style="text-align:center; padding: 10px 0 20px;">
+            <div style="font-size:40px; margin-bottom:6px;">🎓</div>
+            <div style="font-size:18px; font-weight:700; background: linear-gradient(135deg,#38bdf8,#818cf8);
+                 -webkit-background-clip:text; -webkit-text-fill-color:transparent;">BCA Platform</div>
+            <div style="font-size:11px; color:#475569; letter-spacing:2px; text-transform:uppercase;">AI Academic Ecosystem</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("Questions Asked", st.session_state.questions_asked)
-    with c2:
-        st.metric("Topics Studied", len(st.session_state.topics_studied))
-    with c3:
-        st.metric("Session Duration", session_duration_text())
+    st.divider()
 
-    st.markdown("### ✨ Available Features")
-    
+    # ── Mapping between nav pages and study modes ──
+    NAV_TO_MODE = {
+        "🏠 Home": "General Study Assistant",
+        "💬 AI Chat": "General Study Assistant",
+        "📄 PDF Study Chat": "General Study Assistant",
+        "🧩 Quiz Generator": "Quiz Generator",
+        "🐛 Code Helper": "Code Debugger",
+        "📝 Notes Summarizer": "Notes Summarizer",
+        "✍️ Assignment Generator": "Assignment Writer",
+        "✓ Assignment Checker": "General Study Assistant",
+        "📅 Study Planner": "Study Planner",
+        "🧾 Exam Paper Generator": "Exam Prep",
+        "💻 Code Runner": "Programming Helper",
+        "🎓 Study Recommender": "General Study Assistant",
+        "📊 Dashboard": "General Study Assistant",
+    }
+
+    MODE_TO_NAV = {
+        "General Study Assistant": "💬 AI Chat",
+        "Programming Helper": "🐛 Code Helper",
+        "Code Debugger": "🐛 Code Helper",
+        "Quiz Generator": "🧩 Quiz Generator",
+        "Notes Summarizer": "📝 Notes Summarizer",
+        "Assignment Writer": "✍️ Assignment Generator",
+        "Study Planner": "📅 Study Planner",
+        "Exam Prep": "🧾 Exam Paper Generator",
+    }
+
+    st.markdown("#### 📍 Navigation")
+    nav_index = NAV_ITEMS.index(st.session_state.nav) if st.session_state.nav in NAV_ITEMS else 0
+    new_nav = st.radio(
+        "Navigation",
+        options=NAV_ITEMS,
+        index=nav_index,
+        label_visibility="collapsed",
+    )
+
+    # Sync: nav changed → update mode
+    if new_nav != st.session_state.nav:
+        st.session_state.nav = new_nav
+        mapped_mode = NAV_TO_MODE.get(new_nav)
+        if mapped_mode and mapped_mode != st.session_state.mode:
+            st.session_state.mode = mapped_mode
+            st.rerun()
+
+    st.session_state.nav = new_nav
+
+    st.divider()
+
+    st.markdown("#### 🎯 Study Mode")
+    mode_index = STUDY_MODES.index(st.session_state.mode) if st.session_state.mode in STUDY_MODES else 0
+    new_mode = st.selectbox(
+        "Mode",
+        STUDY_MODES,
+        index=mode_index,
+        label_visibility="collapsed",
+    )
+
+    # Sync: mode changed → update nav
+    if new_mode != st.session_state.mode:
+        st.session_state.mode = new_mode
+        mapped_nav = MODE_TO_NAV.get(new_mode)
+        if mapped_nav and mapped_nav != st.session_state.nav:
+            st.session_state.nav = mapped_nav
+            st.rerun()
+
+    st.session_state.mode = new_mode
+
+    with st.expander("⚙️ AI Configuration"):
+        st.session_state.ai_model_name = st.selectbox(
+            "AI Model",
+            list(AI_MODELS_CONFIG.keys()),
+            index=0,
+        )
+        
+        config = AI_MODELS_CONFIG[st.session_state.ai_model_name]
+        st.session_state.ai_provider = config["provider"]
+        if config["provider"] == "gemini":
+            st.session_state.gemini_model = config["model"]
+        else:
+            st.session_state.claude_model = config["model"]
+
+        st.session_state.temperature = st.slider(
+            "Temperature",
+            min_value=0.0,
+            max_value=1.0,
+            value=st.session_state.temperature,
+            step=0.1,
+        )
+
+    with st.expander("👤 User Profile"):
+        name_input = st.text_input(
+            "Your Name",
+            value=st.session_state.user_name or "",
+            key="sidebar_user_name",
+        )
+        if name_input != (st.session_state.user_name or ""):
+            st.session_state.user_name = name_input if name_input else None
+        st.markdown(get_user_profile_summary())
+
+    with st.expander("🔊 Voice Settings"):
+        if VOICE_AVAILABLE and TEXT_TO_SPEECH_AVAILABLE:
+            st.session_state.voice_enabled = st.checkbox(
+                "Enable Voice",
+                value=st.session_state.voice_enabled,
+                key="sidebar_voice_toggle",
+            )
+            st.caption("🎤 Microphone & Speaker required")
+        else:
+            st.warning("⚠️ Voice features unavailable. Install: speechrecognition, pyttsx3")
+
+    st.divider()
+
+    st.markdown("#### 📊 Session Stats")
     col1, col2 = st.columns(2)
-    
     with col1:
+        st.metric("Questions", st.session_state.questions_asked)
+    with col2:
+        st.metric("Topics", len(st.session_state.topics_studied))
+    st.caption(f"Duration: {session_duration_text()}")
+
+    st.divider()
+
+    st.markdown("#### 💾 Export")
+    if st.session_state.messages:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                "📄 MD",
+                data=export_chat_markdown(),
+                file_name=f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+        with col2:
+            st.download_button(
+                "📦 JSON",
+                data=export_chat_json(),
+                file_name=f"chat_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+    else:
+        st.caption("No messages to export")
+
+    if st.button("🗑️ Clear History", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.questions_asked = 0
+        st.session_state.topics_studied = []
+        st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                            16. MAIN HEADER
+# ═══════════════════════════════════════════════════════════════════════════
+
+st.markdown(
+    f"""
+<div class="hero-header">
+    <div class="hero-title">🎓 BCA AI Academic Platform</div>
+    <div class="hero-subtitle">
+        <span class="status-dot"></span>
+        {st.session_state.ai_model_name} · {st.session_state.mode}
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                            17. UI PAGES
+# ═══════════════════════════════════════════════════════════════════════════
+
+def page_home() -> None:
+    """Home page"""
+    st.markdown("### 🏠 Home - Welcome to BCA AI Platform")
+    
+    st.info("🎓 Your all-in-one AI-powered academic platform for BCA students")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Questions", st.session_state.questions_asked)
+    with col2:
+        st.metric("Topics", len(st.session_state.topics_studied))
+    with col3:
+        st.metric("Duration", session_duration_text())
+    with col4:
+        total = sum(st.session_state.feature_usage.values())
+        st.metric("Actions", total)
+    
+    st.markdown("### ✨ Features")
+    feat1, feat2 = st.columns(2)
+    
+    with feat1:
         st.markdown("""
-        **Core Features:**
-        - 💬 **AI Chat** - Interactive learning conversations
-        - 📄 **PDF Study Chat** - Chat with your study materials
-        - 🧩 **Quiz Generator** - Practice MCQs
-        - 🐛 **Code Helper** - Debug and fix code
+        **Learning Tools:**
+        - 💬 AI Chat with voice
+        - 📄 PDF Study Chat
+        - 🧩 Quiz Generator
+        - 🐛 Code Helper
+        - 📝 Notes Summarizer
         """)
     
-    with col2:
+    with feat2:
         st.markdown("""
-        **Advanced Tools:**
-        - 📝 **Assignment Generator** - Create college assignments
-        - 📅 **Study Planner** - Personalized study schedules
-        - 🧾 **Exam Paper Generator** - Mock exam papers
-        - 📊 **Dashboard** - Track your learning progress
+        **Advanced Features:**
+        - ✍️ Assignment Generator
+        - ✓ Assignment Checker (NEW)
+        - 💻 Code Runner (NEW)
+        - 🎓 Study Recommender (NEW)
+        - 📊 Advanced Dashboard
         """)
-
-    st.markdown("### 🚀 Quick Start Guide")
-    st.markdown("1. **Select a Study Mode** from the sidebar based on what you need help with")
-    st.markdown("2. **Navigate** to the appropriate tool using the sidebar menu")
-    st.markdown("3. **Start learning** - ask questions, upload PDFs, generate assignments")
-    st.markdown("4. **Track your progress** in the Dashboard")
 
 
 def page_ai_chat() -> None:
-    """AI Chat page with smart prompts"""
-    track_feature_usage("AI Chat")
+    """AI Chat page"""
+    track_feature_usage("ai_chat")
     st.markdown("### 💬 AI Chat")
-
-    if not st.session_state.messages:
-        st.markdown("#### Quick Prompts")
-        quick = QUICK_PROMPTS.get(st.session_state.mode, [])
-        col_left, col_right = st.columns(2)
-        for idx, qp in enumerate(quick):
-            with col_left if idx % 2 == 0 else col_right:
-                if st.button(qp, key=f"quick_{idx}", use_container_width=True):
-                    st.session_state._quick_prompt = qp
-                    st.rerun()
-
+    
+    # Voice input button
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.session_state.voice_enabled and st.button("🎤 Voice", use_container_width=True):
+            voice_text = speech_to_text()
+            if voice_text:
+                st.session_state._voice_input = voice_text
+                st.rerun()
+    
+    # Display messages
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
-            if st.session_state.show_timestamps and msg.get("timestamp"):
-                st.caption(f"🕐 {msg['timestamp']} · {msg.get('mode', st.session_state.mode)}")
 
-    prompt_input = st.chat_input(f"Ask in {st.session_state.mode} mode...")
-    if hasattr(st.session_state, "_quick_prompt"):
-        prompt_input = st.session_state._quick_prompt
-        del st.session_state._quick_prompt
+    # Chat input
+    prompt_input = st.chat_input("Ask anything...")
+    
+    if hasattr(st.session_state, "_voice_input"):
+        prompt_input = st.session_state._voice_input
+        del st.session_state._voice_input
 
     if prompt_input:
+        detect_user_info(prompt_input)
         update_study_tracking(prompt_input)
+        
+        # Check if user wants to switch tools
+        detected_tool = detect_tool_from_text(prompt_input)
+        if detected_tool:
+            st.session_state.mode = detected_tool
+        
         with st.chat_message("user"):
             st.markdown(prompt_input)
-            if st.session_state.show_timestamps:
-                st.caption(f"🕐 {datetime.now().strftime('%H:%M')}")
         add_chat_message("user", prompt_input)
 
         with st.chat_message("assistant"):
             final_response = render_assistant_response(prompt_input, st.session_state.mode)
-            if st.session_state.show_timestamps:
-                st.caption(
-                    f"🕐 {datetime.now().strftime('%H:%M')} · {len(final_response.split())} words"
-                )
         add_chat_message("assistant", final_response)
+        
+        # Offer voice output
+        if st.session_state.voice_enabled:
+            if st.button("🔊 Read Aloud"):
+                text_to_speech(final_response)
 
 
 def page_pdf_study_chat() -> None:
-    """PDF Study Chat - Upload and chat with PDF documents"""
-    track_feature_usage("PDF Study Chat")
+    """PDF Study Chat"""
+    track_feature_usage("pdf")
     st.markdown("### 📄 PDF Study Chat")
     
     if not PDF_AVAILABLE:
-        st.error("📦 PyPDF library is not installed. Please run: `pip install pypdf`")
-        st.info("After installing, restart the app to use PDF Study Chat feature.")
+        st.error("❌ PyPDF not installed. Run: pip install pypdf")
         return
     
-    st.info("Upload a PDF (lecture notes, textbook chapter, etc.) and ask questions about its content.")
-    
-    # File uploader
-    uploaded_file = st.file_uploader("Choose a PDF file", type=['pdf'], key="pdf_uploader")
+    uploaded_file = st.file_uploader("Choose PDF", type=['pdf'])
     
     if uploaded_file:
         if st.session_state.pdf_filename != uploaded_file.name:
-            # New PDF uploaded
             with st.spinner("📖 Reading PDF..."):
                 content, error = extract_pdf_text(uploaded_file)
                 
@@ -1366,435 +1638,368 @@ def page_pdf_study_chat() -> None:
                 st.session_state.pdf_content = content
                 st.session_state.pdf_filename = uploaded_file.name
                 st.session_state.pdf_chat_history = []
-                st.success(f"✅ Loaded: **{uploaded_file.name}** ({len(content)} characters)")
+                st.success(f"✅ Loaded: {uploaded_file.name}")
         
-        # Show PDF info
-        st.markdown(f"**Current PDF:** {st.session_state.pdf_filename}")
-        st.caption(f"Content length: {len(st.session_state.pdf_content)} characters")
+        st.markdown(f"**PDF:** {st.session_state.pdf_filename}")
         
-        # Display chat history
         for msg in st.session_state.pdf_chat_history:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
-                if st.session_state.show_timestamps:
-                    st.caption(f"🕐 {msg.get('timestamp', '')}")
         
-        # Chat input
-        pdf_question = st.chat_input("Ask a question about the PDF content...")
+        pdf_question = st.chat_input("Ask about the PDF...")
         
         if pdf_question:
-            # Display user question
             with st.chat_message("user"):
                 st.markdown(pdf_question)
-                if st.session_state.show_timestamps:
-                    st.caption(f"🕐 {datetime.now().strftime('%H:%M')}")
             
-            # Add to PDF chat history
             st.session_state.pdf_chat_history.append({
                 "role": "user",
                 "content": pdf_question,
                 "timestamp": datetime.now().strftime("%H:%M"),
             })
             
-            # Find relevant content
-            with st.spinner("🔍 Searching PDF content..."):
-                relevant_content = find_relevant_pdf_content(
-                    st.session_state.pdf_content,
-                    pdf_question
-                )
+            relevant_content = find_relevant_pdf_content(
+                st.session_state.pdf_content,
+                pdf_question
+            )
             
-            # Generate AI response
             with st.chat_message("assistant"):
-                pdf_prompt = f"Based on the provided document content, answer this question: {pdf_question}\n\nProvide a detailed answer with references to the document."
-                final_response = render_assistant_response(pdf_prompt, "General Study Assistant", pdf_context=relevant_content)
-                if st.session_state.show_timestamps:
-                    st.caption(f"🕐 {datetime.now().strftime('%H:%M')}")
-            
-            # Add to PDF chat history
-            st.session_state.pdf_chat_history.append({
-                "role": "assistant",
-                "content": final_response,
-                "timestamp": datetime.now().strftime("%H:%M"),
-            })
+                final_response = render_assistant_response(pdf_question, "General Study Assistant", pdf_context=relevant_content)
+                st.session_state.pdf_chat_history.append({
+                    "role": "assistant",
+                    "content": final_response,
+                    "timestamp": datetime.now().strftime("%H:%M"),
+                })
             
             update_study_tracking(pdf_question)
         
-        # Clear PDF button
-        if st.button("🗑️ Clear PDF & Chat", use_container_width=True):
+        if st.button("🗑️ Clear PDF"):
             st.session_state.pdf_content = None
             st.session_state.pdf_filename = None
             st.session_state.pdf_chat_history = []
             st.rerun()
-    
-    else:
-        st.markdown("""
-        **How to use:**
-        1. Upload a PDF file (lecture notes, textbook, etc.)
-        2. Wait for it to load
-        3. Ask questions about the content
-        4. Get AI-powered answers based on your document
-        
-        **Example questions:**
-        - "Summarize the main points from page 3"
-        - "What is deadlock according to this document?"
-        - "Explain the algorithm mentioned in the PDF"
-        """)
 
 
 def page_quiz_generator() -> None:
-    """Quiz Generator page"""
-    track_feature_usage("Quiz Generator")
+    """Quiz Generator"""
+    track_feature_usage("quiz")
     st.markdown("### 🧩 Quiz Generator")
-    st.info("Generate 5 MCQ questions with 4 options each and the correct answer for exam practice.")
-
-    topic = st.text_input("Enter topic", placeholder="Example: DBMS normalization, Python OOP, Operating System scheduling")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        difficulty = st.selectbox("Difficulty Level", ["Easy", "Medium", "Hard"])
-    with col2:
-        focus_area = st.selectbox("Focus Area", ["Theory", "Practical", "Mixed"])
+    topic = st.text_input("Topic", placeholder="DBMS, Python OOP, Networks...")
     
-    if st.button("Generate 5 MCQs", use_container_width=True):
+    if st.button("Generate 5 MCQs"):
         if not topic.strip():
-            st.warning("Please enter a topic first.")
+            st.warning("Enter a topic")
             return
-
+        
         st.session_state.mode = "Quiz Generator"
-        prompt = f"Create {difficulty.lower()} difficulty quiz with {focus_area.lower()} focus for topic: {topic.strip()}"
+        prompt = f"Create 5 MCQs on: {topic}"
         update_study_tracking(prompt)
-
+        
         with st.chat_message("assistant"):
             result = render_assistant_response(prompt, "Quiz Generator")
-        
         add_chat_message("user", prompt)
         add_chat_message("assistant", result)
 
 
 def page_code_helper() -> None:
-    """Code Helper/Debugger page"""
-    track_feature_usage("Code Helper")
+    """Code Helper"""
+    track_feature_usage("code")
     st.markdown("### 🐛 Code Helper")
-    st.info("Paste your code to detect language, identify syntax issues, and get corrected code.")
-
-    code_input = st.text_area(
-        "Paste code",
-        height=280,
-        placeholder="Paste code here. You can use plain code or fenced blocks.",
-        key="code_helper_input",
-    )
-    extra_context = st.text_input("Error message (optional)", placeholder="Example: IndexError: list index out of range")
-
-    if st.button("🔍 Analyze & Debug Code", use_container_width=True):
+    
+    code_input = st.text_area("Paste code:", height=250)
+    
+    if st.button("🔍 Analyze Code"):
         if not code_input.strip():
-            st.warning("Please paste code first.")
+            st.warning("Paste code first")
             return
-
+        
         st.session_state.mode = "Code Debugger"
         wrapped = f"```\n{code_input}\n```"
-        debug_prompt = wrapped
-        if extra_context.strip():
-            debug_prompt += f"\n\nObserved error:\n{extra_context.strip()}"
-
-        update_study_tracking("code debugging " + extra_context)
+        update_study_tracking("code debugging")
+        
         with st.chat_message("assistant"):
-            result = render_assistant_response(debug_prompt, "Code Debugger")
-        add_chat_message("user", debug_prompt)
+            result = render_assistant_response(wrapped, "Code Debugger")
+        add_chat_message("user", wrapped)
         add_chat_message("assistant", result)
 
 
 def page_notes_summarizer() -> None:
-    """Notes Summarizer page"""
-    track_feature_usage("Notes Summarizer")
+    """Notes Summarizer"""
+    track_feature_usage("notes")
     st.markdown("### 📝 Notes Summarizer")
-    st.info("Paste long academic notes and convert them into revision-focused bullet points.")
-
-    notes = st.text_area(
-        "Paste notes",
-        height=300,
-        placeholder="Paste lecture notes, textbook paragraphs, or your own notes...",
-        key="notes_summarizer_input",
-    )
     
-    summary_type = st.radio(
-        "Summary Style",
-        ["Quick Revision", "Detailed Explanation", "Exam Focus"],
-        horizontal=True
-    )
-
-    if st.button("✨ Summarize Notes", use_container_width=True):
+    notes = st.text_area("Paste notes:", height=250)
+    
+    if st.button("✨ Summarize"):
         if not notes.strip():
-            st.warning("Please paste notes first.")
+            st.warning("Paste notes first")
             return
-
+        
         st.session_state.mode = "Notes Summarizer"
-        enhanced_prompt = f"{notes}\n\n[Summarize in {summary_type} style]"
-        update_study_tracking("notes summarization")
+        update_study_tracking("note summarization")
+        
         with st.chat_message("assistant"):
-            result = render_assistant_response(enhanced_prompt, "Notes Summarizer")
-        add_chat_message("user", enhanced_prompt)
+            result = render_assistant_response(notes, "Notes Summarizer")
+        add_chat_message("user", notes)
         add_chat_message("assistant", result)
 
 
 def page_assignment_generator() -> None:
-    """Assignment Generator page"""
-    track_feature_usage("Assignment Generator")
-    st.markdown("### 📝 Assignment Generator")
-    st.info("Generate well-structured college assignments with proper formatting.")
+    """Assignment Generator"""
+    track_feature_usage("assignment")
+    st.markdown("### ✍️ Assignment Generator")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        topic = st.text_input(
-            "Assignment Topic",
-            placeholder="Example: Cloud Computing and its Applications"
-        )
-        word_count = st.selectbox(
-            "Target Word Count",
-            ["500 words", "1000 words", "1500 words", "2000 words"]
-        )
+    topic = st.text_input("Topic", placeholder="Cloud Computing...")
     
-    with col2:
-        difficulty = st.selectbox(
-            "Academic Level",
-            ["Undergraduate", "Advanced", "Research Level"]
-        )
-        include_refs = st.checkbox("Include References", value=True)
-    
-    if st.button("📄 Generate Assignment", use_container_width=True):
+    if st.button("Generate Assignment"):
         if not topic.strip():
-            st.warning("Please enter an assignment topic.")
+            st.warning("Enter topic")
             return
         
         st.session_state.mode = "Assignment Writer"
-        prompt = (
-            f"Write a {word_count} {difficulty} level assignment on: {topic}\n"
-            f"Include references: {include_refs}"
-        )
+        prompt = f"Write a 1000-word assignment on: {topic}"
         update_study_tracking(f"assignment on {topic}")
         
-        with st.spinner("✍️ Writing assignment..."):
-            with st.chat_message("assistant"):
-                result = render_assistant_response(prompt, "Assignment Writer")
-        
+        with st.chat_message("assistant"):
+            result = render_assistant_response(prompt, "Assignment Writer")
         add_chat_message("user", prompt)
         add_chat_message("assistant", result)
         
-        # Download button for assignment
         st.download_button(
-            "⬇️ Download Assignment",
+            "⬇️ Download",
             data=result,
-            file_name=f"assignment_{topic.replace(' ', '_')}.txt",
+            file_name=f"assignment_{topic[:20]}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+
+
+def page_assignment_checker() -> None:
+    """Assignment Checker - NEW"""
+    track_feature_usage("checker")
+    st.markdown("### ✓ Assignment Checker")
+    st.info("Paste your assignment to get AI feedback on grammar, clarity, and improvements")
+    
+    assignment_text = st.text_area("Paste assignment:", height=300)
+    
+    if st.button("🔍 Check Assignment"):
+        if not assignment_text.strip():
+            st.warning("Paste assignment first")
+            return
+        
+        with st.spinner("📝 Analyzing your assignment..."):
+            feedback = check_assignment(assignment_text)
+        
+        st.markdown(feedback)
+        
+        st.download_button(
+            "⬇️ Download Feedback",
+            data=feedback,
+            file_name=f"feedback_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
             mime="text/plain",
             use_container_width=True
         )
 
 
 def page_study_planner() -> None:
-    """Study Planner page"""
-    track_feature_usage("Study Planner")
+    """Study Planner"""
+    track_feature_usage("planner")
     st.markdown("### 📅 Study Planner")
-    st.info("Create personalized study schedules based on your exam dates and available time.")
     
     col1, col2 = st.columns(2)
     with col1:
-        exam_date = st.date_input("Exam Date", value=datetime.now() + timedelta(days=15))
-        hours_per_day = st.slider("Hours available per day", 1, 12, 4)
+        exam_date = st.date_input("Exam Date")
+        hours_per_day = st.slider("Hours/day", 1, 12, 4)
     
     with col2:
-        subjects = st.text_area(
-            "Subjects/Topics (one per line)",
-            height=100,
-            placeholder="DBMS\nOperating Systems\nPython Programming\nComputer Networks"
-        )
+        subjects = st.text_area("Subjects (one/line)", height=120)
     
-    include_revision = st.checkbox("Include revision days", value=True)
-    
-    if st.button("🗓️ Create Study Plan", use_container_width=True):
+    if st.button("🗓️ Create Plan"):
         if not subjects.strip():
-            st.warning("Please enter subjects/topics.")
+            st.warning("Enter subjects")
             return
         
         days_remaining = (exam_date - datetime.now().date()).days
-        
         if days_remaining <= 0:
-            st.error("Exam date must be in the future!")
+            st.error("Exam date must be future")
             return
         
         st.session_state.mode = "Study Planner"
-        prompt = (
-            f"Create a study plan for:\n"
-            f"- Exam in {days_remaining} days\n"
-            f"- {hours_per_day} hours available per day\n"
-            f"- Subjects: {subjects}\n"
-            f"- Include revision: {include_revision}"
-        )
+        prompt = f"Create study plan: {days_remaining} days, {hours_per_day}h/day, subjects: {subjects}"
         update_study_tracking("study planning")
         
-        with st.spinner("📋 Creating your personalized study plan..."):
-            with st.chat_message("assistant"):
-                result = render_assistant_response(prompt, "Study Planner")
-        
+        with st.chat_message("assistant"):
+            result = render_assistant_response(prompt, "Study Planner")
         add_chat_message("user", prompt)
         add_chat_message("assistant", result)
 
 
-def page_exam_paper_generator() -> None:
-    """Exam Paper Generator page"""
-    track_feature_usage("Exam Paper Generator")
+def page_exam_generator() -> None:
+    """Exam Paper Generator"""
+    track_feature_usage("exam")
     st.markdown("### 🧾 Exam Paper Generator")
-    st.info("Generate realistic university-style exam papers with multiple sections.")
     
     col1, col2 = st.columns(2)
     with col1:
-        subject = st.text_input(
-            "Subject/Topic",
-            placeholder="Example: Database Management Systems"
-        )
-        exam_duration = st.selectbox(
-            "Exam Duration",
-            ["1 hour", "2 hours", "3 hours"]
-        )
-    
+        subject = st.text_input("Subject", placeholder="DBMS...")
+        duration = st.selectbox("Duration", ["1 hour", "2 hours"])
     with col2:
-        difficulty = st.selectbox(
-            "Difficulty Level",
-            ["Easy", "Medium", "Hard", "Mixed"]
-        )
-        total_marks = st.selectbox(
-            "Total Marks",
-            ["40 marks", "50 marks", "75 marks", "100 marks"]
-        )
+        difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
+        marks = st.selectbox("Total Marks", ["40", "50", "75", "100"])
     
-    exam_type = st.radio(
-        "Exam Type",
-        ["Mid-Semester", "End-Semester", "Unit Test"],
-        horizontal=True
-    )
-    
-    if st.button("📋 Generate Exam Paper", use_container_width=True):
+    if st.button("📋 Generate Exam"):
         if not subject.strip():
-            st.warning("Please enter a subject/topic.")
+            st.warning("Enter subject")
             return
         
         st.session_state.mode = "Exam Prep"
-        prompt = (
-            f"Generate a {exam_type} exam paper for {subject}\n"
-            f"- Duration: {exam_duration}\n"
-            f"- Total Marks: {total_marks}\n"
-            f"- Difficulty: {difficulty}\n"
-            "Include: MCQs, Short Answer, and Long Answer sections with marks distribution."
-        )
-        update_study_tracking(f"exam paper for {subject}")
+        prompt = f"Generate exam paper: {subject}, {duration}, {difficulty}, {marks} marks"
+        update_study_tracking(f"exam generation for {subject}")
         
-        with st.spinner("📝 Generating exam paper..."):
-            with st.chat_message("assistant"):
-                result = render_assistant_response(prompt, "Exam Prep")
-        
+        with st.chat_message("assistant"):
+            result = render_assistant_response(prompt, "Exam Prep")
         add_chat_message("user", prompt)
         add_chat_message("assistant", result)
         
-        # Download button for exam paper
         st.download_button(
-            "⬇️ Download Exam Paper",
+            "⬇️ Download Exam",
             data=result,
-            file_name=f"exam_{subject.replace(' ', '_')}.txt",
+            file_name=f"exam_{subject[:15]}.txt",
             mime="text/plain",
             use_container_width=True
         )
 
 
+def page_code_runner() -> None:
+    """Code Runner - NEW"""
+    track_feature_usage("runner")
+    st.markdown("### 💻 Code Runner")
+    st.warning("⚠️ Limited execution - infinite loops and external calls blocked")
+    
+    code_input = st.text_area("Write Python code:", height=300, value="# Write Python code here\nprint('Hello World')")
+    
+    if st.button("▶️ Run Code"):
+        if not code_input.strip():
+            st.warning("Write code first")
+            return
+        
+        with st.spinner("Running..."):
+            output, error = execute_python_code(code_input)
+        
+        if output:
+            st.success("✅ Output:")
+            st.code(output)
+        
+        if error:
+            st.error("❌ Error:")
+            st.code(error)
+        
+        if not output and not error:
+            st.info("Code executed successfully with no output")
+
+
+def page_study_recommender() -> None:
+    """Study Recommender - NEW"""
+    track_feature_usage("recommender")
+    st.markdown("### 🎓 Study Recommender")
+    
+    st.markdown(get_study_recommendations())
+    
+    if st.button("Get Detailed Recommendations"):
+        prompt = f"""Based on topics studied: {', '.join(st.session_state.topics_studied) if st.session_state.topics_studied else 'None yet'}
+        
+Create a detailed personalized learning path with:
+1. Next 5 topics to learn
+2. Why each topic is important
+3. Recommended learning order
+4. Estimated time for each topic
+5. Practice projects for each topic
+"""
+        with st.chat_message("assistant"):
+            result = render_assistant_response(prompt, "General Study Assistant")
+        st.markdown(result)
+
+
 def page_dashboard() -> None:
-    """Enhanced Dashboard with analytics"""
+    """Enhanced Dashboard"""
     st.markdown("### 📊 Study Dashboard")
     
-    # Main metrics
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        st.metric("Questions Asked", st.session_state.questions_asked)
-    with m2:
-        st.metric("Topics Studied", len(st.session_state.topics_studied))
-    with m3:
-        st.metric("Session Duration", session_duration_text())
-    with m4:
-        total_usage = sum(st.session_state.feature_usage.values())
-        st.metric("Total Actions", total_usage)
-    
-    st.divider()
-    
-    # Feature Usage
-    col1, col2 = st.columns(2)
-    
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.markdown("#### 📈 Feature Usage Stats")
-        feature_data = get_most_used_features()
-        if sum(usage for _, usage in feature_data) > 0:
-            for feature, count in feature_data:
-                if count > 0:
-                    st.metric(feature, count)
-        else:
-            st.caption("No feature usage data yet. Start using the tools!")
-    
+        st.metric("Questions", st.session_state.questions_asked)
     with col2:
-        st.markdown("#### 📚 Topics Studied")
-        if st.session_state.topics_studied:
-            for topic in st.session_state.topics_studied:
-                st.markdown(f"• {topic}")
-        else:
-            st.caption("No topics tracked yet. Ask questions to build your study list.")
+        st.metric("Topics", len(st.session_state.topics_studied))
+    with col3:
+        st.metric("Duration", session_duration_text())
+    with col4:
+        total = sum(st.session_state.feature_usage.values())
+        st.metric("Total Actions", total)
     
     st.divider()
     
-    # Most Used Study Mode
-    st.markdown("#### 🎯 Study Mode Analytics")
-    most_used = get_most_used_features()
-    if most_used and most_used[0][1] > 0:
-        st.success(f"🏆 Most Used Feature: **{most_used[0][0]}** ({most_used[0][1]} times)")
+    # Charts
+    feat_data = get_most_used_features()
+    if feat_data and any(usage for _, usage in feat_data):
+        st.markdown("#### 📈 Feature Usage")
+        feat_names = [f[0] for f in feat_data if f[1] > 0]
+        feat_values = [f[1] for f in feat_data if f[1] > 0]
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            for name, value in zip(feat_names, feat_values):
+                if value > 0:
+                    st.metric(name, value)
+        
+        with col2:
+            if st.session_state.topics_studied:
+                st.markdown("#### 📚 Topics Studied")
+                for topic in st.session_state.topics_studied:
+                    st.markdown(f"• {topic}")
     
-    # Recent Activity
+    st.divider()
     st.markdown("#### 🕐 Recent Activity")
-    recent = st.session_state.messages[-8:]
+    recent = st.session_state.messages[-5:]
     if recent:
         for item in recent:
-            role_icon = "👤" if item["role"] == "user" else "🤖"
-            role_label = "You" if item["role"] == "user" else "AI"
-            content_preview = item['content'][:150] + "..." if len(item['content']) > 150 else item['content']
-            st.markdown(
-                f"**{role_icon} {role_label}** ({item.get('timestamp', '')})  \n"
-                f"{content_preview}"
-            )
-            st.divider()
+            icon = "👤" if item["role"] == "user" else "🤖"
+            content_preview = item['content'][:100] + "..." if len(item['content']) > 100 else item['content']
+            st.markdown(f"**{icon}** {content_preview}")
     else:
-        st.caption("No activity yet. Start chatting to see your history here!")
-    
-    # Session Info
-    st.markdown("#### ℹ️ Session Information")
-    st.caption(f"Session started: {st.session_state.session_start_dt.strftime('%Y-%m-%d %H:%M')}")
-    active_model = st.session_state.model if st.session_state.ai_provider == "Gemini" else st.session_state.groq_model
-    st.caption(f"Current provider/model: {st.session_state.ai_provider} / {active_model}")
-    st.caption(f"Temperature: {st.session_state.temperature}")
+        st.caption("No activity yet")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#                              PAGE ROUTING
+#                            18. PAGE ROUTER
 # ═══════════════════════════════════════════════════════════════════════════
 
-if st.session_state.nav == "Home":
+if st.session_state.nav == "🏠 Home":
     page_home()
-elif st.session_state.nav == "AI Chat":
+elif st.session_state.nav == "💬 AI Chat":
     page_ai_chat()
 elif st.session_state.nav == "📄 PDF Study Chat":
     page_pdf_study_chat()
-elif st.session_state.nav == "Quiz Generator":
+elif st.session_state.nav == "🧩 Quiz Generator":
     page_quiz_generator()
-elif st.session_state.nav == "Code Helper":
+elif st.session_state.nav == "🐛 Code Helper":
     page_code_helper()
-elif st.session_state.nav == "Notes Summarizer":
+elif st.session_state.nav == "📝 Notes Summarizer":
     page_notes_summarizer()
-elif st.session_state.nav == "📝 Assignment Generator":
+elif st.session_state.nav == "✍️ Assignment Generator":
     page_assignment_generator()
+elif st.session_state.nav == "✓ Assignment Checker":
+    page_assignment_checker()
 elif st.session_state.nav == "📅 Study Planner":
     page_study_planner()
 elif st.session_state.nav == "🧾 Exam Paper Generator":
-    page_exam_paper_generator()
-elif st.session_state.nav == "Dashboard":
+    page_exam_generator()
+elif st.session_state.nav == "💻 Code Runner":
+    page_code_runner()
+elif st.session_state.nav == "🎓 Study Recommender":
+    page_study_recommender()
+elif st.session_state.nav == "📊 Dashboard":
     page_dashboard()
+
+st.markdown("---")
+st.caption("🎓 BCA AI Academic Platform v3.0 | Powered by Gemini & Claude")
