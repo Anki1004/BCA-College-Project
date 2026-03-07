@@ -1,13 +1,13 @@
 """
 ╔══════════════════════════════════════════════════════════════════════════╗
-║                 BCA AI ACADEMIC PLATFORM - v3.0                          ║
+║                  AI ACADEMIC PLATFORM - v3.0                             ║
 ║              Advanced AI-Powered Learning Companion                       ║
 ║                                                                          ║
 ║  Multi-Model System | Voice Assistant | Memory System | Smart Router    ║
 ║  Code Executor | Assignment Checker | Study Recommender | Analytics     ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
-Author: BCA AI Team
+Author: AI Team
 Version: 3.0 - Enterprise Edition
 Date: March 2026
 
@@ -39,17 +39,41 @@ import io
 import sys
 from datetime import datetime, timedelta
 from io import BytesIO
-from urllib import error as urlerror
-from urllib import request as urlrequest
 from contextlib import redirect_stdout, redirect_stderr
 
 import google.generativeai as genai
 import streamlit as st
+from anthropic import Anthropic
+
+# ── Debug mode: set True locally to see real API errors in terminal ──────────
+DEBUG = True   # flip to False before final production deploy
+
+def _debug(tag: str, msg: str) -> None:
+    if DEBUG:
+        print(f"[AI-DEBUG] {tag}: {msg}", flush=True)
+
+# ── Rules engine (instant FAQ answers, zero API cost) ────────────────────────
+try:
+    from rules_engine import (
+        predict_intent as _re_predict,
+        _LLM_PREFERRED_INTENTS,
+        _DEEP_TRIGGERS,
+    )
+    _RULES_ENGINE_AVAILABLE = True
+    _debug("INIT", "rules_engine loaded OK")
+except ImportError as _e:
+    _RULES_ENGINE_AVAILABLE = False
+    _debug("INIT", f"rules_engine not found — {_e}")
 
 # Optional voice libraries - gracefully handled if missing
 try:
     import speech_recognition as sr
-    VOICE_AVAILABLE = True
+    try:
+        import pyaudio  # noqa: F401  # type: ignore[reportMissingImports]
+        VOICE_AVAILABLE = True
+    except ImportError:
+        # SpeechRecognition needs PyAudio for microphone input on desktop.
+        VOICE_AVAILABLE = False
 except ImportError:
     VOICE_AVAILABLE = False
 
@@ -72,7 +96,7 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(
-    page_title="BCA AI Academic Platform",
+    page_title="AI Academic Platform",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -335,10 +359,7 @@ code {
 
 NAV_ITEMS = [
     "🏠 Home",
-    "💬 AI Chat",
     "📄 PDF Study Chat",
-    "🧩 Quiz Generator",
-    "🐛 Code Helper",
     "📝 Notes Summarizer",
     "✍️ Assignment Generator",
     "✓ Assignment Checker",
@@ -347,6 +368,9 @@ NAV_ITEMS = [
     "💻 Code Runner",
     "🎓 Study Recommender",
     "📊 Dashboard",
+    "💬 AI Chat",
+    "🧩 Quiz Generator",
+    "🐛 Code Helper",
 ]
 
 STUDY_MODES = [
@@ -360,27 +384,11 @@ STUDY_MODES = [
     "Exam Prep",
 ]
 
-# AI MODEL CONFIGURATIONS
-GEMINI_MODELS = [
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-    "gemini-2.0-flash",
-]
-
-CLAUDE_MODELS = [
-    "claude-sonnet-4-20250514",
-    "claude-3-5-haiku-20241022",
-]
-
-AI_MODELS_CONFIG = {
-    "Gemini Flash": {"provider": "gemini", "model": "gemini-1.5-flash"},
-    "Gemini Pro": {"provider": "gemini", "model": "gemini-1.5-pro"},
-    "Claude Sonnet": {"provider": "claude", "model": "claude-sonnet-4-20250514"},
-    "Claude Haiku": {"provider": "claude", "model": "claude-3-5-haiku-20241022"},
-}
+# AI MODEL CONFIGURATIONS (model list is now in the AI Engine section below)
+GEMINI_MODELS = ["gemini-1.5-flash", "gemini-1.5-pro"]  # kept for any external reference
 
 MODE_PROMPTS = {
-    "Programming Helper": """You are an expert programming tutor for BCA students.
+    "Programming Helper": """You are an expert programming tutor for computer science students.
 - Explain concepts with clarity and practical examples
 - Include code snippets with explanations
 - Mention real-world applications
@@ -394,7 +402,7 @@ MODE_PROMPTS = {
 - Include best practices and optimization tips
 - Use clear formatting with headings""",
     
-    "Quiz Generator": """You are an academic quiz creator for BCA exams.
+    "Quiz Generator": """You are an academic quiz creator for university exams.
 - Generate exactly 5 MCQs with 4 options each
 - Mark correct answers clearly
 - Keep questions exam-oriented and syllabus-based
@@ -429,16 +437,16 @@ MODE_PROMPTS = {
 - Match university exam patterns
 - Provide time management tips""",
     
-    "General Study Assistant": """You are a comprehensive AI Study Assistant for BCA students.
+    "General Study Assistant": """You are a comprehensive AI Study Assistant for computer science students.
 - Help with programming, CS theory, and exam prep
 - Provide educational, student-friendly responses
-- Include examples relevant to BCA syllabus
+- Include examples relevant to core syllabus
 - Use structured formatting with headings
 - Focus on learning outcomes""",
 }
 
 BASE_ACADEMIC_CONTEXT = """
-You are an AI Study Assistant designed specifically for BCA (Bachelor of Computer Applications) students.
+You are an AI Study Assistant designed for computer science and IT students.
 Your primary role is to facilitate learning, understanding, and exam preparation in:
 - Programming Languages (Python, Java, C, C++)
 - Database Management Systems
@@ -450,7 +458,7 @@ Your primary role is to facilitate learning, understanding, and exam preparation
 
 Guidelines for responses:
 1. Be educational and student-friendly
-2. Include practical examples from BCA syllabus
+2. Include practical examples from core syllabus
 3. Use proper formatting with headings and bullet points
 4. Avoid generic chatbot-style responses
 5. Focus on conceptual understanding
@@ -533,11 +541,6 @@ def init_session() -> None:
         "nav": "🏠 Home",
         
         # AI Configuration
-        "ai_model_name": "Gemini Flash",
-        "ai_provider": "gemini",
-        "gemini_model": "gemini-1.5-flash",
-        "claude_model": "claude-sonnet-4-20250514",
-        "temperature": 0.5,
         "typing_speed": 0.01,
         "show_timestamps": True,
         
@@ -586,6 +589,9 @@ def init_session() -> None:
         
         # Theme
         "theme": "dark",
+
+        # API key rotation
+        "gemini_key_index": 0,
     }
     
     for key, val in defaults.items():
@@ -825,7 +831,7 @@ def build_mode_specific_user_prompt(user_prompt: str, mode: str) -> str:
 
     if mode == "Quiz Generator":
         return (
-            "Generate exactly 5 multiple-choice questions for BCA students on the requested topic.\n"
+            "Generate exactly 5 multiple-choice questions for computer science students on the requested topic.\n"
             "Rules:\n"
             "- Each question must have 4 options labeled A, B, C, D\n"
             "- Clearly mention the correct answer below each question\n"
@@ -885,163 +891,211 @@ def build_mode_specific_user_prompt(user_prompt: str, mode: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#                        7. AI ENGINE - MULTI-MODEL
+#                        7. AI ENGINE  (fixed)
 # ═══════════════════════════════════════════════════════════════════════════
 
-def get_gemini_response(user_prompt: str, mode: str, history: list[dict] | None = None, pdf_context: str | None = None) -> str:
-    """Get response from Gemini"""
+# Gemini models tried in order per key
+_GEMINI_MODELS = ["gemini-1.5-flash", "gemini-1.5-pro"]
+
+# ── Secrets loading ──────────────────────────────────────────────────────────
+
+def _load_gemini_keys() -> list[str]:
+    """Return list of Gemini API keys from st.secrets['GEMINI_KEYS']."""
     try:
-        api_keys = st.secrets["GEMINI_KEYS"]
-    except Exception:
-        return "❌ **Error:** Gemini API keys not configured in secrets."
+        raw = st.secrets["GEMINI_KEYS"]
+        if isinstance(raw, str):
+            keys = [k.strip() for k in raw.split(",") if k.strip()]
+        else:
+            keys = [str(k).strip() for k in raw if str(k).strip()]
+        _debug("KEYS", f"Loaded {len(keys)} Gemini key(s)")
+        return keys
+    except Exception as exc:
+        _debug("KEYS", f"Could not load GEMINI_KEYS — {exc}")
+        return []
 
-    if not isinstance(api_keys, list):
-        api_keys = [api_keys]
 
-    system_prompt = build_system_prompt(mode)
-    mode_prompt = build_mode_specific_user_prompt(user_prompt, mode)
+def _load_claude_key() -> str | None:
+    """Return Claude API key from st.secrets['CLAUDE_API_KEY']."""
+    try:
+        k = str(st.secrets["CLAUDE_API_KEY"]).strip()
+        return k if k else None
+    except Exception as exc:
+        _debug("KEYS", f"Could not load CLAUDE_API_KEY — {exc}")
+        return None
 
-    context = ""
-    if history:
-        recent = history[-8:]
-        if recent:
-            lines = []
-            for msg in recent:
-                role = "Student" if msg["role"] == "user" else "AI"
-                lines.append(f"{role}: {msg['content'][:200]}")
-            context = "\n".join(lines)
-    
-    pdf_section = ""
-    if pdf_context:
-        pdf_section = f"\n\nREFERENCE DOCUMENT:\n{pdf_context}\n"
 
-    full_prompt = (
-        f"SYSTEM:\n{system_prompt}\n\n"
-        f"CONTEXT:\n{context if context else 'None'}\n"
-        f"{pdf_section}"
-        f"QUERY:\n{mode_prompt}"
-    )
+# ── Gemini call ──────────────────────────────────────────────────────────────
 
-    models_to_try = [st.session_state.gemini_model] + [m for m in GEMINI_MODELS if m != st.session_state.gemini_model]
-    last_error = None
+def _call_gemini(prompt: str, system_prompt: str) -> str | None:
+    """
+    Try every Gemini key in sequence, rotating through _GEMINI_MODELS.
+    Returns the response text on the first success, or None if all fail.
+    Logs real exceptions so they appear in the terminal / Streamlit logs.
+    """
+    keys = _load_gemini_keys()
+    if not keys:
+        _debug("GEMINI", "No keys available — skipping Gemini")
+        return None
 
-    for key in api_keys:
-        genai.configure(api_key=key)
-        for model_name in models_to_try:
+    num_keys = len(keys)
+    start = st.session_state.get("gemini_key_index", 0) % num_keys
+    full_prompt = f"{system_prompt}\n\n{prompt}"
+
+    for i in range(num_keys):
+        key_idx = (start + i) % num_keys
+        api_key = keys[key_idx]
+
+        for model_name in _GEMINI_MODELS:
             try:
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(
-                    full_prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        temperature=st.session_state.temperature,
-                        max_output_tokens=2048,
-                    ),
+                _debug("GEMINI", f"Trying key[{key_idx}] model={model_name}")
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel(
+                    model_name,
+                    generation_config={
+                        "temperature": 0.7,
+                        "max_output_tokens": 2048,
+                    },
                 )
-                st.session_state.gemini_model = model_name
-                return response.text.strip() if response.text else "No response generated."
-            except Exception as err:
-                last_error = err
-                msg = str(err).lower()
-
-                if "not found" in msg or "404" in msg or "unsupported" in msg:
-                    continue
-                if "429" in msg or "quota" in msg or "invalid" in msg:
-                    break
+                response = model.generate_content(full_prompt)
+                text = (response.text or "").strip()
+                if text:
+                    # Advance key index for next call (round-robin)
+                    st.session_state["gemini_key_index"] = (key_idx + 1) % num_keys
+                    _debug("GEMINI", f"Success key[{key_idx}] model={model_name}")
+                    return text
+                _debug("GEMINI", f"Empty response from key[{key_idx}] model={model_name}")
+            except Exception as exc:
+                # Log the REAL error — this is what was hidden before
+                _debug("GEMINI", f"key[{key_idx}] model={model_name} FAILED: {exc}")
                 continue
 
-    return f"❌ **Error:** All API attempts failed. Try again shortly."
+    _debug("GEMINI", "All keys / models exhausted")
+    return None
 
 
-def get_claude_response(user_prompt: str, mode: str, history: list[dict] | None = None, pdf_context: str | None = None) -> str:
-    """Get response from Claude (Anthropic) API"""
+# ── Claude call ──────────────────────────────────────────────────────────────
+
+def _call_claude(prompt: str, system_prompt: str) -> str | None:
+    """
+    Call Claude claude-3-haiku-20240307 as fallback.
+    Returns text on success, None on any failure.
+    """
+    key = _load_claude_key()
+    if not key:
+        _debug("CLAUDE", "No key — skipping Claude")
+        return None
+
     try:
-        claude_key = st.secrets["CLAUDE_API_KEY"]
-    except Exception:
-        return "❌ **Error:** Claude API key not configured in secrets."
-
-    system_prompt = build_system_prompt(mode)
-    mode_prompt = build_mode_specific_user_prompt(user_prompt, mode)
-
-    context = ""
-    if history:
-        recent = history[-8:]
-        if recent:
-            lines = []
-            for msg in recent:
-                role = "Student" if msg["role"] == "user" else "AI"
-                lines.append(f"{role}: {msg['content'][:200]}")
-            context = "\n".join(lines)
-
-    pdf_section = ""
-    if pdf_context:
-        pdf_section = f"\n\nREFERENCE DOCUMENT:\n{pdf_context}\n"
-
-    combined_user_content = (
-        f"CONTEXT:\n{context if context else 'None'}\n"
-        f"{pdf_section}"
-        f"QUERY:\n{mode_prompt}"
-    )
-
-    models_to_try = [st.session_state.claude_model] + [m for m in CLAUDE_MODELS if m != st.session_state.claude_model]
-    last_error = None
-
-    for model_name in models_to_try:
-        payload = {
-            "model": model_name,
-            "system": system_prompt,
-            "messages": [
-                {"role": "user", "content": combined_user_content},
-            ],
-            "max_tokens": 2048,
-            "temperature": st.session_state.temperature,
-        }
-
-        req = urlrequest.Request(
-            url="https://api.anthropic.com/v1/messages",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "x-api-key": claude_key,
-                "anthropic-version": "2023-06-01",
-                "Content-Type": "application/json",
-            },
-            method="POST",
+        _debug("CLAUDE", "Calling claude-3-haiku-20240307")
+        client = Anthropic(api_key=key, timeout=45.0)
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            system=system_prompt,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2048,
         )
-
-        try:
-            with urlrequest.urlopen(req, timeout=60) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            content_blocks = data.get("content", [])
-            text_parts = [b.get("text", "") for b in content_blocks if b.get("type") == "text"]
-            content = "\n".join(text_parts).strip()
-            if content:
-                st.session_state.claude_model = model_name
-                return content
-        except urlerror.HTTPError as err:
-            last_error = err
-            try:
-                err_body = err.read().decode("utf-8")
-            except Exception:
-                err_body = str(err)
-            lower = err_body.lower()
-            if "model" in lower and ("not found" in lower or "unsupported" in lower):
-                continue
-            if err.code in (401, 403):
-                return "❌ **Error:** Claude API key is invalid or unauthorized."
-            if err.code == 429:
-                return "⏳ **Rate Limited:** Claude rate limit reached. Try again shortly."
-            continue
-        except Exception as err:
-            last_error = err
-            continue
-
-    return f"❌ **Error:** Unable to generate response. Check API keys."
+        text = "\n".join(
+            b.text for b in response.content if b.type == "text"
+        ).strip()
+        if text:
+            _debug("CLAUDE", "Success")
+            return text
+        _debug("CLAUDE", "Empty response")
+        return None
+    except Exception as exc:
+        _debug("CLAUDE", f"FAILED: {exc}")
+        return None
 
 
-def get_ai_response(user_prompt: str, mode: str, history: list[dict] | None = None, pdf_context: str | None = None) -> str:
-    """Route to appropriate AI provider"""
-    if st.session_state.ai_provider == "claude":
-        return get_claude_response(user_prompt, mode, history, pdf_context)
-    return get_gemini_response(user_prompt, mode, history, pdf_context)
+# ── Rules-engine first-pass ──────────────────────────────────────────────────
+
+def _rules_engine_answer(user_text: str) -> str | None:
+    """
+    Return a deterministic template answer if the rules engine fires.
+    Returns None when the question must go to an LLM.
+    """
+    if not _RULES_ENGINE_AVAILABLE:
+        return None
+
+    user_lower = user_text.lower()
+
+    # Deep-trigger phrases always bypass rules and go straight to LLM
+    forced_llm = any(trigger in user_lower for trigger in _DEEP_TRIGGERS)
+    if forced_llm:
+        return None
+
+    intent_name, score, template = _re_predict(user_text)
+
+    # LLM-preferred intents (quiz, code, assignment, study explanation) need LLM
+    if intent_name in _LLM_PREFERRED_INTENTS or intent_name == "unknown":
+        return None
+
+    if score > 0:
+        _debug("RULES", f"intent={intent_name} score={score}")
+        return template
+
+    return None
+
+
+# ── Main public function ─────────────────────────────────────────────────────
+
+def get_ai_response(
+    user_prompt: str,
+    mode: str,
+    history: list[dict] | None = None,
+    pdf_context: str | None = None,
+) -> str:
+    """
+    Response pipeline
+    ─────────────────
+    1. Rules engine  → instant FAQ answer (no API call)
+    2. Gemini        → key rotation across all GEMINI_KEYS
+    3. Claude        → fallback if all Gemini keys fail
+    4. Static reply  → if every provider is down
+
+    Real errors are printed to the terminal / Streamlit logs (DEBUG=True).
+    """
+
+    # ── 1. Rules engine (free, instant) ─────────────────────────────────────
+    if not pdf_context:   # PDF questions always need LLM context
+        rules_answer = _rules_engine_answer(user_prompt)
+        if rules_answer:
+            return rules_answer
+
+    # ── 2 & 3. Build the full prompt for LLM ────────────────────────────────
+    system_prompt = build_system_prompt(mode)
+    user_content  = build_mode_specific_user_prompt(user_prompt, mode)
+
+    # Append recent conversation context (last 6 turns)
+    if history:
+        recent = history[-6:]
+        ctx = "\n".join(
+            f"{'Student' if m['role'] == 'user' else 'AI'}: {m['content'][:200]}"
+            for m in recent
+        )
+        user_content = f"Previous context:\n{ctx}\n\n{user_content}"
+
+    # Prepend PDF reference if provided
+    if pdf_context:
+        user_content = f"REFERENCE DOCUMENT:\n{pdf_context}\n\n{user_content}"
+
+    # ── 2. Gemini ────────────────────────────────────────────────────────────
+    gemini_answer = _call_gemini(user_content, system_prompt)
+    if gemini_answer:
+        return gemini_answer
+
+    # ── 3. Claude fallback ───────────────────────────────────────────────────
+    claude_answer = _call_claude(user_content, system_prompt)
+    if claude_answer:
+        return claude_answer
+
+    # ── 4. Nothing worked ───────────────────────────────────────────────────
+    _debug("ENGINE", "All providers failed for prompt: " + user_prompt[:80])
+    return (
+        "⚠️ I'm having trouble connecting to the AI service right now. "
+        "Please check your API keys in `.streamlit/secrets.toml` and try again. "
+        "If you are seeing quota errors, wait a minute and retry."
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1109,6 +1163,7 @@ def detect_tool_from_text(text: str) -> str | None:
 def speech_to_text() -> str | None:
     """Convert speech to text"""
     if not VOICE_AVAILABLE:
+        st.warning("⚠️ Voice input is disabled because PyAudio is not installed for this Python version.")
         return None
     
     try:
@@ -1205,7 +1260,7 @@ def get_study_recommendations() -> str:
         return """
 ### 📚 **Getting Started**
 
-Based on BCA curriculum, here's where to start:
+Based on a standard computer science curriculum, here's where to start:
 
 1. **Programming Fundamentals** - Python/Java basics
 2. **Data Structures** - Arrays, Linked Lists, Trees, Graphs
@@ -1266,10 +1321,9 @@ def export_chat_markdown() -> str:
         return ""
 
     lines = [
-        "# BCA AI Platform - Chat Export",
+        "# AI Academic Platform - Chat Export",
         f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"**Study Mode:** {st.session_state.mode}",
-        f"**AI Model:** {st.session_state.ai_model_name}",
         "---",
         "",
     ]
@@ -1286,7 +1340,6 @@ def export_chat_json() -> str:
         {
             "exported_at": datetime.now().isoformat(),
             "mode": st.session_state.mode,
-            "ai_model": st.session_state.ai_model_name,
             "user_name": st.session_state.user_name,
             "messages": st.session_state.messages,
             "questions_asked": st.session_state.questions_asked,
@@ -1342,7 +1395,7 @@ with st.sidebar:
         <div style="text-align:center; padding: 10px 0 20px;">
             <div style="font-size:40px; margin-bottom:6px;">🎓</div>
             <div style="font-size:18px; font-weight:700; background: linear-gradient(135deg,#38bdf8,#818cf8);
-                 -webkit-background-clip:text; -webkit-text-fill-color:transparent;">BCA Platform</div>
+                 -webkit-background-clip:text; -webkit-text-fill-color:transparent;">AI Academic Platform</div>
             <div style="font-size:11px; color:#475569; letter-spacing:2px; text-transform:uppercase;">AI Academic Ecosystem</div>
         </div>
         """,
@@ -1419,28 +1472,6 @@ with st.sidebar:
 
     st.session_state.mode = new_mode
 
-    with st.expander("⚙️ AI Configuration"):
-        st.session_state.ai_model_name = st.selectbox(
-            "AI Model",
-            list(AI_MODELS_CONFIG.keys()),
-            index=0,
-        )
-        
-        config = AI_MODELS_CONFIG[st.session_state.ai_model_name]
-        st.session_state.ai_provider = config["provider"]
-        if config["provider"] == "gemini":
-            st.session_state.gemini_model = config["model"]
-        else:
-            st.session_state.claude_model = config["model"]
-
-        st.session_state.temperature = st.slider(
-            "Temperature",
-            min_value=0.0,
-            max_value=1.0,
-            value=st.session_state.temperature,
-            step=0.1,
-        )
-
     with st.expander("👤 User Profile"):
         name_input = st.text_input(
             "Your Name",
@@ -1450,17 +1481,6 @@ with st.sidebar:
         if name_input != (st.session_state.user_name or ""):
             st.session_state.user_name = name_input if name_input else None
         st.markdown(get_user_profile_summary())
-
-    with st.expander("🔊 Voice Settings"):
-        if VOICE_AVAILABLE and TEXT_TO_SPEECH_AVAILABLE:
-            st.session_state.voice_enabled = st.checkbox(
-                "Enable Voice",
-                value=st.session_state.voice_enabled,
-                key="sidebar_voice_toggle",
-            )
-            st.caption("🎤 Microphone & Speaker required")
-        else:
-            st.warning("⚠️ Voice features unavailable. Install: speechrecognition, pyttsx3")
 
     st.divider()
 
@@ -1510,10 +1530,10 @@ with st.sidebar:
 st.markdown(
     f"""
 <div class="hero-header">
-    <div class="hero-title">🎓 BCA AI Academic Platform</div>
+    <div class="hero-title">🎓 AI Academic Platform</div>
     <div class="hero-subtitle">
         <span class="status-dot"></span>
-        {st.session_state.ai_model_name} · {st.session_state.mode}
+        {st.session_state.mode}
     </div>
 </div>
 """,
@@ -1527,20 +1547,9 @@ st.markdown(
 
 def page_home() -> None:
     """Home page"""
-    st.markdown("### 🏠 Home - Welcome to BCA AI Platform")
+    st.markdown("### 🏠 Home - Welcome to AI Academic Platform")
     
-    st.info("🎓 Your all-in-one AI-powered academic platform for BCA students")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Questions", st.session_state.questions_asked)
-    with col2:
-        st.metric("Topics", len(st.session_state.topics_studied))
-    with col3:
-        st.metric("Duration", session_duration_text())
-    with col4:
-        total = sum(st.session_state.feature_usage.values())
-        st.metric("Actions", total)
+    st.info("🎓 Your all-in-one AI-powered academic platform")
     
     st.markdown("### ✨ Features")
     feat1, feat2 = st.columns(2)
@@ -2002,4 +2011,4 @@ elif st.session_state.nav == "📊 Dashboard":
     page_dashboard()
 
 st.markdown("---")
-st.caption("🎓 BCA AI Academic Platform v3.0 | Powered by Gemini & Claude")
+st.caption("🎓 AI Academic Platform")

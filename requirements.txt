@@ -1,6 +1,17 @@
+# ── Core ──────────────────────────────────────────────────────────────
 streamlit>=1.32.0
-google-generativeai>=0.8.0
-pypdf>=3.0.0
-speechrecognition>=3.10.0
-pyttsx3>=2.90
+
+# ── AI providers ──────────────────────────────────────────────────────
+google-generativeai>=0.8.0   # Gemini (primary)
+anthropic>=0.18.0            # Claude (fallback)
+
+# ── Document processing ───────────────────────────────────────────────
+pypdf>=3.0.0                 # PDF Study Chat
+
+# ── Optional (voice — comment out if not needed on cloud) ─────────────
+# speechrecognition>=3.10.0
+# pyttsx3>=2.90
+# pyaudio>=0.2.13            # required for microphone input
+
+# ── Utilities ─────────────────────────────────────────────────────────
 requests>=2.31.0
