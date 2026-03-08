@@ -1,17 +1,12 @@
-# ── Core ──────────────────────────────────────────────────────────────
+# ── Core ──────────────────────────────────────────────────────────────────────
 streamlit>=1.32.0
 
-# ── AI providers ──────────────────────────────────────────────────────
-google-generativeai>=0.8.0   # Gemini (primary)
-anthropic>=0.18.0            # Claude (fallback)
+# ── AI providers ──────────────────────────────────────────────────────────────
+google-generativeai>=0.8.0   # Gemini primary model
+anthropic>=0.18.0            # Claude fallback model
 
-# ── Document processing ───────────────────────────────────────────────
-pypdf>=3.0.0                 # PDF Study Chat
+# ── Document processing ───────────────────────────────────────────────────────
+pypdf>=3.0.0                 # PDF text extraction for PDF Study Chat
 
-# ── Optional (voice — comment out if not needed on cloud) ─────────────
-# speechrecognition>=3.10.0
-# pyttsx3>=2.90
-# pyaudio>=0.2.13            # required for microphone input
-
-# ── Utilities ─────────────────────────────────────────────────────────
+# ── Utilities ─────────────────────────────────────────────────────────────────
 requests>=2.31.0

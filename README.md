@@ -1,153 +1,101 @@
-# 🎓 BCA AI Academic Platform — v3.0
+# 🎓 AI Academic Platform
 
-An AI-powered academic companion for computer science & BCA students.  
-Built with **Streamlit** · **Gemini** · **Claude** · **Rules Engine**
+A clean, modular Streamlit-based AI study companion for all college students (BCA, BTech, BBA, BSc, BCom, MBA).
 
 ---
 
-## Architecture Overview
+## 🗂️ Project Structure
 
 ```
-User Message
-     │
-     ▼
-┌─────────────────────────────┐
-│  Rules Engine (rules_engine.py)   │  ← Fast, deterministic, zero API cost
-│  keyword + regex matching         │
-└─────────────┬───────────────┘
-              │ match found?
-         YES ─┴─ NO (or deep trigger / PDF)
-         │                │
-         ▼                ▼
-  Template reply    ┌─────────────┐
-  (instant)         │  Gemini LLM │  ← Key rotation across GEMINI_KEYS list
-                    └──────┬──────┘
-                           │ all keys fail?
-                           ▼
-                    ┌─────────────┐
-                    │  Claude LLM │  ← CLAUDE_API_KEY fallback
-                    └──────┬──────┘
-                           │ fails?
-                           ▼
-                    Static error message
+AI-Academic-Platform/
+├── app.py              ← Main Streamlit UI + 13 page functions
+├── ai_engine.py        ← Gemini key rotation → Claude fallback
+├── utils.py            ← All offline Python utilities
+├── requirements.txt
+├── README.md
+└── .streamlit/
+    ├── secrets.toml    ← API keys (never commit this file)
+    └── config.toml     ← Streamlit server config
 ```
 
 ---
 
-## Files
+## 🛠️ 13 Tools (fixed sidebar order)
 
-| File | Purpose |
-|---|---|
-| `app.py` | Main Streamlit application — all UI pages and LLM routing |
-| `rules_engine.py` | Deterministic intent classifier; optional LLM fallback stub |
-| `intents.json` | Intent schema (patterns, examples, response templates) |
-| `requirements.txt` | Python dependencies |
-| `.streamlit/secrets.toml` | API key storage (never commit to git) |
+| # | Tool | Description |
+|---|------|-------------|
+| 1 | 🏠 Home | Dashboard overview |
+| 2 | 📄 PDF Study Chat | Upload PDF → ask questions |
+| 3 | 📝 Notes Summarizer | Long notes → concise summary |
+| 4 | ✍️ Assignment Generator | Topic → full assignment |
+| 5 | ✓ Assignment Checker | Grammar + AI feedback |
+| 6 | 📅 Study Planner | Exam date → day-by-day schedule |
+| 7 | 🧾 Exam Paper Generator | Subject → realistic exam paper |
+| 8 | 💻 Code Runner | Write & run Python safely |
+| 9 | 🎓 Study Recommender | Personalised resource recommendations |
+| 10 | 📊 Dashboard | Session analytics |
+| 11 | 💬 AI Chat | General AI assistant |
+| 12 | 🧩 Quiz Generator | Topic → MCQ quiz |
+| 13 | 🐛 Code Helper | Debug, explain, optimise code |
 
 ---
 
-## Setup
+## ⚙️ Setup
 
-### 1 · Install dependencies
-
+### 1. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2 · Configure API keys
-
-Edit `.streamlit/secrets.toml` — **never commit this file**:
-
+### 2. Configure API keys
+Create `.streamlit/secrets.toml`:
 ```toml
-# One or more Gemini keys (rotated automatically)
-GEMINI_KEYS = ["AIza...", "AIza...", "AIza..."]
-
-# Claude fallback
-CLAUDE_API_KEY = "sk-ant-..."
+GEMINI_KEYS = ["AIza_key1", "AIza_key2", "AIza_key3"]
+CLAUDE_API_KEY = "sk-ant-your_key"
 ```
 
-Keys are loaded at runtime via `st.secrets`. They are **never** logged or echoed.
-
-### 3 · Run
-
+### 3. Run
 ```bash
 streamlit run app.py
 ```
 
 ---
 
-## Rules Engine
+## 🔄 AI Pipeline
 
-`rules_engine.py` classifies messages **before** any API call.
-
-| Intent | Example triggers | Action |
-|---|---|---|
-| `greeting` | hi, hello, namaste | Template reply |
-| `ask_model` | "which model are you using" | Template reply |
-| `check_quota` | quota, rpm, rate limit | Template reply |
-| `set_keys` | streamlit secrets, secrets.toml | Template reply |
-| `explain_error` | "all api attempts failed" | Template reply |
-| `offline_options` | offline, ollama, run locally | Template reply |
-| `study_help` | explain, what is, define | LLM (needs content) |
-| `generate_quiz` | quiz, mcq, make questions | LLM (needs content) |
-| `code_help` | fix code, python error | LLM (needs content) |
-| `assignment_help` | assignment, homework | LLM (needs content) |
-| `unknown` | anything else | LLM fallback |
-
-**Deep triggers** — phrases like `"explain in detail"`, `"generate"`, `"create"` always escalate to LLM even for otherwise-templated intents.
-
----
-
-## API Key Rotation
-
-- Gemini keys are stored as a list and rotated round-robin via `st.session_state.gemini_key_index`.
-- If a key raises an exception, the next key is tried automatically.
-- Claude is only called if all Gemini keys fail.
-- Quota errors from a shared Google project affect all keys — use separate projects for true independent quotas.
-
----
-
-## Features
-
-| Page | Description |
-|---|---|
-| 🏠 Home | Welcome & feature overview |
-| 💬 AI Chat | General chat with mode switching & voice input |
-| 📄 PDF Study Chat | Upload PDF and ask questions about it |
-| 🧩 Quiz Generator | Auto-generate MCQs on any CS topic |
-| 🐛 Code Helper | Paste code → get debug analysis |
-| 📝 Notes Summarizer | Convert notes to exam-ready bullets |
-| ✍️ Assignment Generator | Generate structured academic assignments |
-| ✓ Assignment Checker | Paste your assignment for AI feedback |
-| 📅 Study Planner | Day-by-day schedule with exam countdown |
-| 🧾 Exam Paper Generator | Generate full exam papers with mark scheme |
-| 💻 Code Runner | Execute Python code in a sandbox |
-| 🎓 Study Recommender | Personalised learning path suggestions |
-| 📊 Dashboard | Session analytics & feature usage |
-
----
-
-## Security Notes
-
-- API keys are read **only** from `st.secrets` at runtime.
-- No keys are printed to logs, echoed in responses, or stored in session state in plain text.
-- Code Runner runs user code in a subprocess with a 10-second timeout and no network access.
-- The rules engine never calls any external service for template-matched intents.
-
----
-
-## Running Tests (quick REPL)
-
-```bash
-python rules_engine.py
+```
+User request
+     │
+     ▼
+Gemini 1.5 Flash  ←  key rotation across all GEMINI_KEYS
+     │  all keys fail?
+     ▼
+Claude 3 Haiku  ←  final fallback
+     │  fails?
+     ▼
+Safe fallback message  ←  never crashes the app
 ```
 
-Expected behaviour:
+---
 
-| Input | Intent | Calls LLM? |
-|---|---|---|
-| `hi` | `greeting` | No |
-| `Why does it say all API attempts failed` | `explain_error` | No |
-| `Can I run model offline on Streamlit Cloud?` | `offline_options` | No |
-| `Explain OOP in detail` | `study_help` | Yes ("in detail" trigger) |
-| `Generate quiz on DBMS` | `generate_quiz` | Yes (LLM-preferred intent) |
+## 🐛 Bugs Fixed
+
+| Bug | Fix |
+|-----|-----|
+| `get_gemini_response()` called but never defined | Replaced with clean `_call_gemini()` in `ai_engine.py` |
+| `CLAUDE_MODELS` undefined | Removed; Claude uses single model via Anthropic SDK |
+| `urlrequest` / `urlerror` not imported | Replaced raw HTTP with Anthropic Python SDK |
+| `ai_provider`, `claude_model`, `temperature` never initialised | Removed concept; unified pipeline in `ai_engine.py` |
+| NAV_ITEMS had 17 items with 3 duplicates | Fixed to exactly 13 unique items in correct order |
+| Voice assistant (speech_recognition, pyttsx3) | Completely removed |
+| Real errors hidden by bare `except: pass` | All exceptions logged with `_log()` when `DEBUG=True` |
+| `"All AI providers unavailable"` always shown | Real errors now visible in terminal; safe message for users |
+
+---
+
+## 🔐 Security
+
+- API keys only in `.streamlit/secrets.toml`
+- `.gitignore` excludes `secrets.toml`
+- Code Runner blocks: `os`, `sys`, `subprocess`, `eval`, `exec`, `open()` etc.
+- Errors logged to terminal in debug mode — never exposed to users
