@@ -60,102 +60,16 @@ st.set_page_config(
 #  CSS
 # ─────────────────────────────────────────────────────────────────────────────
 
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+st.markdown(
+    '<link rel="stylesheet" href=".streamlit/custom.css">',
+    unsafe_allow_html=True
+)
 
-/* ── Base ── */
-[data-testid="stAppViewContainer"] {
-    background: #060b18;
-    color: #e2e8f0;
-    font-family: 'Space Grotesk', sans-serif;
-}
-[data-testid="stSidebar"] {
-    background: #0d1526;
-    border-right: 1px solid #1e2d4a;
-}
-
-/* ── Cards ── */
-.card {
-    background: #111c33;
-    border: 1px solid #1e2d4a;
-    border-radius: 12px;
-    padding: 1.2rem 1.5rem;
-    margin-bottom: 1rem;
-}
-.card-green  { border-left: 4px solid #10b981; }
-.card-blue   { border-left: 4px solid #38bdf8; }
-.card-purple { border-left: 4px solid #818cf8; }
-.card-amber  { border-left: 4px solid #f59e0b; }
-.card-red    { border-left: 4px solid #f87171; }
-
-
-
-/* ── Hero ── */
-.hero {
-    background: linear-gradient(135deg, #0d1526 0%, #111c33 100%);
-    border: 1px solid #1e2d4a;
-    border-radius: 16px;
-    padding: 2.5rem 2rem;
-    text-align: center;
-    margin-bottom: 1.5rem;
-}
-.hero h1 {
-    font-size: 2.2rem;
-    background: linear-gradient(135deg, #38bdf8, #818cf8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 0.5rem;
-}
-.hero p { color: #64748b; font-size: 1rem; }
-
-/* ── Tool grid card ── */
-.tool-card {
-    background: #111c33;
-    border: 1px solid #1e2d4a;
-    border-radius: 10px;
-    padding: 1rem;
-    margin-bottom: 0.7rem;
-    transition: border-color 0.2s;
-}
-.tool-card:hover { border-color: #38bdf8; }
-.tool-card .icon { font-size: 1.5rem; margin-bottom: 4px; }
-.tool-card .name { font-weight: 600; color: #e2e8f0; font-size: 0.95rem; }
-.tool-card .desc { color: #64748b; font-size: 0.8rem; }
-
-/* ── Metric ── */
-.kpi {
-    background: #111c33;
-    border: 1px solid #1e2d4a;
-    border-radius: 10px;
-    padding: 0.8rem 1rem;
-    text-align: center;
-}
-.kpi h3 { font-size: 1.8rem; color: #38bdf8; margin: 0; }
-.kpi p  { font-size: 0.75rem; color: #64748b; margin: 0; }
-
-/* ── Inputs ── */
-[data-testid="stTextArea"] textarea,
-[data-testid="stTextInput"] input {
-    background: #111c33 !important;
-    border: 1px solid #1e2d4a !important;
-    color: #e2e8f0 !important;
-    border-radius: 8px !important;
-    font-family: 'Space Grotesk', sans-serif !important;
-}
-button[kind="primary"] {
-    background: linear-gradient(135deg, #0ea5e9, #6366f1) !important;
-    border: none !important;
-    color: #fff !important;
-    font-weight: 600 !important;
-    border-radius: 8px !important;
-}
-code, pre {
-    font-family: 'JetBrains Mono', monospace !important;
-    background: #060b18 !important;
-}
-</style>
-""", unsafe_allow_html=True)
+# Modern fixed header
+st.markdown(
+    '<div class="header">🎓 AI Academic Platform<br><span style="font-size:1.1rem;font-weight:400;">Your intelligent study companion</span></div>',
+    unsafe_allow_html=True
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -164,6 +78,7 @@ code, pre {
 
 NAV_ITEMS: list[str] = [
     "🏠 Home",
+    "🖼️ Image OCR",
     "📄 PDF Study Chat",
     "📝 Notes Summarizer",
     "✍️ Assignment Generator",
@@ -172,14 +87,15 @@ NAV_ITEMS: list[str] = [
     "🧾 Exam Paper Generator",
     "💻 Code Runner",
     "🎓 Study Recommender",
+    "👥 Study Room",
     "📊 Dashboard",
     "💬 AI Chat",
     "🧩 Quiz Generator",
     "🐛 Code Helper",
 ]
 
-# Map nav → study mode (for auto-switching the mode selector)
 NAV_TO_MODE: dict[str, str] = {
+    "🖼️ Image OCR":         "General Study Assistant",
     "🏠 Home":                "General Study Assistant",
     "📄 PDF Study Chat":      "General Study Assistant",
     "📝 Notes Summarizer":    "Notes Summarizer",
@@ -189,6 +105,7 @@ NAV_TO_MODE: dict[str, str] = {
     "🧾 Exam Paper Generator": "Exam Prep",
     "💻 Code Runner":          "Programming Helper",
     "🎓 Study Recommender":   "General Study Assistant",
+    "👥 Study Room":          "General Study Assistant",
     "📊 Dashboard":           "General Study Assistant",
     "💬 AI Chat":             "General Study Assistant",
     "🧩 Quiz Generator":      "Quiz Generator",
@@ -210,6 +127,12 @@ _DEFAULTS: dict = {
     "session_start_dt":   datetime.now(),
     "questions_asked":    0,
     "topics_studied":     [],
+    # Gamification
+    "points":             0,
+    "streak":             1,
+    "best_streak":        1,
+    "last_active_date":   datetime.now().date(),
+    "badges":             [],
     # User profile
     "user_name":          None,
     # Feature analytics
@@ -338,12 +261,19 @@ with st.sidebar:
 
     st.divider()
 
-    # User profile
-    with st.expander("👤 Profile"):
+    # User profile & gamification
+    with st.expander("👤 Profile & Achievements"):
         name_val = st.text_input("Your name", value=st.session_state.user_name or "", key="sb_name")
         if name_val != (st.session_state.user_name or ""):
             st.session_state.user_name = name_val or None
         st.markdown(get_user_profile_summary())
+        st.markdown(f"**🏅 Points:** {st.session_state.points}")
+        st.markdown(f"🔥 **Streak:** {st.session_state.streak} days  ")
+        st.markdown(f"🏆 **Best Streak:** {st.session_state.best_streak} days")
+        if st.session_state.badges:
+            st.markdown("**🎖️ Badges:** " + ", ".join(st.session_state.badges))
+        else:
+            st.caption("No badges earned yet. Use tools to earn achievements!")
 
     st.divider()
 
@@ -370,12 +300,13 @@ page = st.session_state.nav
 
 # ── 1. Home ──────────────────────────────────────────────────────────────────
 if page == "🏠 Home":
-    st.markdown("""
-    <div class="hero">
-      <h1>🎓 AI Academic Platform</h1>
-      <p>Your intelligent study companion — OpenRouter first, Gemini & Claude backed, always responsive.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        '<div class="card" style="text-align:center;">'
+        '<h2 style="margin-bottom:0.5rem;font-size:2rem;color:var(--primary);">Welcome to your AI Study Platform</h2>'
+        '<p style="color:#94a3b8;font-size:1.1rem;">OpenRouter first, Gemini & Claude backed, always responsive.</p>'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
     tools = [
         ("📄", "PDF Study Chat",       "Upload any PDF, ask questions about it",  "📄 PDF Study Chat"),
@@ -400,35 +331,104 @@ if page == "🏠 Home":
                 st.rerun()
 
 
+# ── 1.5. Image OCR ─────────────────────────────────────────────────────────────
+elif page == "🖼️ Image OCR":
+    st.markdown("### 🖼️ Image-to-Text (OCR)")
+    st.info("Upload an image of handwritten notes or a diagram to extract text. (Requires pytesseract installed)")
+    uploaded_img = st.file_uploader("Upload Image", type=["png", "jpg", "jpeg", "bmp"])
+    ocr_text = ""
+    if uploaded_img:
+        try:
+            from PIL import Image
+            import pytesseract
+            img = Image.open(uploaded_img)
+            ocr_text = pytesseract.image_to_string(img)
+            st.success("Text extracted from image:")
+            st.text_area("Extracted Text", ocr_text, height=180)
+        except ImportError:
+            st.error("pytesseract or PIL not installed. Please install them to use OCR.")
+        except Exception as e:
+            st.error(f"OCR failed: {e}")
+    else:
+        st.caption("Upload an image to begin OCR.")
+
+
+# ── 1.7. Study Room ───────────────────────────────────────────────────────────
+elif page == "👥 Study Room":
+    st.markdown("### 👥 Collaborative Study Room")
+    st.info("Create or join a local study room to chat and share notes with others on this device.")
+    room_name = st.text_input("Room Name", "My Study Room")
+    user_name = st.text_input("Your Name", st.session_state.get("user_name") or "User")
+    join = st.button("Join Room")
+
+    if "rooms" not in st.session_state:
+        st.session_state["rooms"] = {}
+    rooms = st.session_state["rooms"]
+
+    if join:
+        if room_name not in rooms:
+            rooms[room_name] = {"members": [], "chat": [], "notes": ""}
+        if user_name not in rooms[room_name]["members"]:
+            rooms[room_name]["members"].append(user_name)
+        st.session_state["current_room"] = room_name
+        st.session_state["current_user"] = user_name
+        st.success(f"Joined room: {room_name}")
+
+    current_room = st.session_state.get("current_room")
+    current_user = st.session_state.get("current_user")
+    if current_room and current_user and current_room in rooms:
+        st.subheader(f"Room: {current_room}")
+        st.markdown(f"**Members:** {', '.join(rooms[current_room]['members'])}")
+        st.markdown("---")
+        # Chat
+        st.markdown("#### 💬 Chat")
+        chat_input = st.text_input("Message", "", key="chat_input")
+        if st.button("Send", key="send_chat"):
+            if chat_input.strip():
+                rooms[current_room]["chat"].append((current_user, chat_input.strip()))
+        for sender, msg in rooms[current_room]["chat"][-10:]:
+            st.markdown(f"**{sender}:** {msg}")
+        # Shared Notes
+        st.markdown("#### 📝 Shared Notes")
+        notes = st.text_area("Notes", rooms[current_room]["notes"], height=120)
+        if st.button("Save Notes"):
+            rooms[current_room]["notes"] = notes
+        st.caption("All data is local to this device and session.")
+
+
 # ── 2. PDF Study Chat ─────────────────────────────────────────────────────────
 elif page == "📄 PDF Study Chat":
     track_feature_usage("pdf")
     st.markdown("### 📄 PDF Study Chat")
 
-    uploaded = st.file_uploader("Upload a PDF", type=["pdf"])
-    if uploaded:
-        if uploaded.name != st.session_state.pdf_filename:
-            with st.spinner("📖 Reading PDF…"):
-                text, err = extract_pdf_text(uploaded)
-            if err:
-                st.error(f"❌ {err}")
-            else:
-                st.session_state.pdf_content  = text
-                st.session_state.pdf_filename = uploaded.name
-                st.session_state.pdf_chat_history = []
-                st.success(f"✅ Loaded: **{uploaded.name}**")
+    with st.container():
+        uploaded = st.file_uploader("Upload a PDF", type=["pdf"])
+        if uploaded:
+            if uploaded.name != st.session_state.pdf_filename:
+                with st.spinner("📖 Reading PDF…"):
+                    text, err = extract_pdf_text(uploaded)
+                if err:
+                    st.toast(f"❌ {err}", icon="❌")
+                    st.error(f"{err}")
+                else:
+                    st.session_state.pdf_content  = text
+                    st.session_state.pdf_filename = uploaded.name
+                    st.session_state.pdf_chat_history = []
+                    st.toast(f"✅ Loaded: {uploaded.name}", icon="✅")
+                    st.success(f"Loaded: **{uploaded.name}**")
 
     if st.session_state.pdf_content:
         st.caption(f"📎 Active PDF: {st.session_state.pdf_filename}")
 
+        st.markdown('<div style="margin-bottom:1rem;"><b>PDF Q&A Chat</b></div>', unsafe_allow_html=True)
         for msg in st.session_state.pdf_chat_history:
             with st.chat_message(msg["role"]):
-                st.markdown(msg["content"], unsafe_allow_html=True)
+                st.markdown(f'<div class="card" style="margin-bottom:0.5rem;">{msg["content"]}</div>', unsafe_allow_html=True)
 
         question = st.chat_input("Ask a question about the PDF…")
         if question:
             with st.chat_message("user"):
-                st.markdown(question)
+                st.markdown(f'<div class="card card-accent">{question}</div>', unsafe_allow_html=True)
             st.session_state.pdf_chat_history.append({"role": "user", "content": question})
 
             ctx = find_relevant_pdf_content(st.session_state.pdf_content, question)
@@ -437,10 +437,11 @@ elif page == "📄 PDF Study Chat":
             st.session_state.pdf_chat_history.append({"role": "assistant", "content": answer})
             update_study_tracking(question)
 
-        if st.button("🗑️ Clear PDF"):
+        if st.button("🗑️ Clear PDF", use_container_width=True):
             st.session_state.pdf_content      = None
             st.session_state.pdf_filename     = None
             st.session_state.pdf_chat_history = []
+            st.toast("PDF chat cleared.", icon="🗑️")
             st.rerun()
     elif not uploaded:
         st.info("👆 Upload a PDF to get started.")
@@ -451,26 +452,33 @@ elif page == "📝 Notes Summarizer":
     track_feature_usage("notes")
     st.markdown("### 📝 Notes Summarizer")
 
-    notes = st.text_area("Paste your notes here", height=260,
-                         placeholder="Paste lecture notes, textbook passages, or any text…")
-    length = st.select_slider("Summary length", ["Very Short", "Short", "Medium", "Detailed"], value="Medium")
-    length_map = {"Very Short": "3 sentences", "Short": "5 sentences",
-                  "Medium": "8–10 sentences", "Detailed": "15+ sentences"}
+    with st.container():
+        notes = st.text_area("Paste your notes here", height=260,
+                             placeholder="Paste lecture notes, textbook passages, or any text…")
+        length = st.select_slider("Summary length", ["Very Short", "Short", "Medium", "Detailed"], value="Medium")
+        length_map = {"Very Short": "3 sentences", "Short": "5 sentences",
+                      "Medium": "8–10 sentences", "Detailed": "15+ sentences"}
+        st.caption(f"Summary will be about: {length_map[length]}")
 
-    if st.button("✨ Summarize", type="primary") and notes.strip():
-        prompt = (
-            f"Summarise the following academic notes in {length_map[length]}. "
-            f"Preserve all key definitions, formulas, and important facts. "
-            f"Use bullet points where helpful.\n\nNOTES:\n{notes}"
-        )
-        update_study_tracking(notes)
-        with st.spinner("Summarising…"):
-            resp, src = _ai(prompt, "Notes Summarizer",
-                            fallback="Summary unavailable. Please check AI keys.")
-        st.markdown(f'<div class="card card-green">{resp}{_source_badge(src)}</div>',
-                    unsafe_allow_html=True)
-        _add_message("user", notes[:200] + "…")
-        _add_message("assistant", resp)
+        if st.button("✨ Summarize", type="primary"):
+            if not notes.strip():
+                st.toast("Please paste some notes to summarize!", icon="⚠️")
+                st.warning("Please paste some notes to summarize.")
+            else:
+                prompt = (
+                    f"Summarise the following academic notes in {length_map[length]}. "
+                    f"Preserve all key definitions, formulas, and important facts. "
+                    f"Use bullet points where helpful.\n\nNOTES:\n{notes}"
+                )
+                update_study_tracking(notes)
+                with st.spinner("Summarising…"):
+                    resp, src = _ai(prompt, "Notes Summarizer",
+                                    fallback="Summary unavailable. Please check AI keys.")
+                st.markdown(f'<div class="card card-green" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>',
+                            unsafe_allow_html=True)
+                st.toast("Summary generated!", icon="✅")
+                _add_message("user", notes[:200] + "…")
+                _add_message("assistant", resp)
 
 
 # ── 4. Assignment Generator ───────────────────────────────────────────────────
@@ -478,33 +486,40 @@ elif page == "✍️ Assignment Generator":
     track_feature_usage("assignment")
     st.markdown("### ✍️ Assignment Generator")
 
-    topic      = st.text_input("Assignment topic", placeholder="e.g. Cloud Computing and its Applications")
-    c1, c2     = st.columns(2)
-    word_count = c1.number_input("Target word count", 500, 5000, 1000, step=250)
-    style      = c2.selectbox("Style", ["Academic Essay", "Technical Report", "Case Study", "Lab Report"])
+    with st.container():
+        topic      = st.text_input("Assignment topic", placeholder="e.g. Cloud Computing and its Applications")
+        c1, c2     = st.columns(2)
+        word_count = c1.number_input("Target word count", 500, 5000, 1000, step=250)
+        style      = c2.selectbox("Style", ["Academic Essay", "Technical Report", "Case Study", "Lab Report"])
 
-    if st.button("📄 Generate Assignment", type="primary") and topic.strip():
-        prompt = (
-            f"Write a {style} on '{topic}'. "
-            f"Target length: approximately {word_count} words. "
-            f"Structure: Introduction → Main Body (with subheadings) → Conclusion → References. "
-            f"Use formal academic English."
-        )
-        update_study_tracking(topic)
-        with st.spinner("Writing assignment…"):
-            resp, src = _ai(prompt, "Assignment Writer",
-                            fallback=f"Assignment generation unavailable. Topic: {topic}")
-        st.markdown(f'<div class="card">{resp}{_source_badge(src)}</div>',
-                    unsafe_allow_html=True)
-        st.download_button(
-            "⬇️ Download as .txt",
-            data=resp,
-            file_name=f"assignment_{topic[:25].replace(' ', '_')}.txt",
-            mime="text/plain",
-            use_container_width=True,
-        )
-        _add_message("user", prompt[:200])
-        _add_message("assistant", resp)
+        if st.button("📄 Generate Assignment", type="primary"):
+            if not topic.strip():
+                st.toast("Please enter an assignment topic!", icon="⚠️")
+                st.warning("Please enter an assignment topic.")
+            else:
+                prompt = (
+                    f"Write a {style} on '{topic}'. "
+                    f"Target length: approximately {word_count} words. "
+                    f"Structure: Introduction → Main Body (with subheadings) → Conclusion → References. "
+                    f"Use formal academic English."
+                )
+                update_study_tracking(topic)
+                with st.spinner("Writing assignment…"):
+                    resp, src = _ai(prompt, "Assignment Writer",
+                                    fallback=f"Assignment generation unavailable. Topic: {topic}")
+                st.markdown(f'<div class="card" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>',
+                            unsafe_allow_html=True)
+                st.toast("Assignment generated!", icon="✅")
+                st.download_button(
+                    "⬇️ Download as .txt",
+                    data=resp,
+                    file_name=f"assignment_{topic[:25].replace(' ', '_')}.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                    on_click=lambda: st.toast("Downloaded!", icon="⬇️")
+                )
+                _add_message("user", prompt[:200])
+                _add_message("assistant", resp)
 
 
 # ── 5. Assignment Checker ─────────────────────────────────────────────────────
@@ -513,38 +528,45 @@ elif page == "✓ Assignment Checker":
     st.markdown("### ✓ Assignment Checker")
     st.info("Paste your assignment below to get AI feedback on grammar, structure, and content quality.")
 
-    text = st.text_area("Paste your assignment", height=300,
-                        placeholder="Paste the full text of your assignment here…")
+    with st.container():
+        text = st.text_area("Paste your assignment", height=300,
+                            placeholder="Paste the full text of your assignment here…")
 
-    if st.button("🔍 Check Assignment", type="primary") and text.strip():
-        # Word / sentence count (offline)
-        words = text.split()
-        sentences = re.split(r"[.!?]+", text)
-        sentences = [s.strip() for s in sentences if s.strip()]
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Words",     len(words))
-        c2.metric("Sentences", len(sentences))
-        c3.metric("Avg Sent",  f"{round(len(words)/max(1,len(sentences)),1)} words")
+        if st.button("🔍 Check Assignment", type="primary"):
+            if not text.strip():
+                st.toast("Please paste your assignment!", icon="⚠️")
+                st.warning("Please paste your assignment.")
+            else:
+                # Word / sentence count (offline)
+                words = text.split()
+                sentences = re.split(r"[.!?]+", text)
+                sentences = [s.strip() for s in sentences if s.strip()]
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Words",     len(words))
+                c2.metric("Sentences", len(sentences))
+                c3.metric("Avg Sent",  f"{round(len(words)/max(1,len(sentences)),1)} words")
 
-        _hr()
-        prompt = (
-            f"Review the following student assignment and provide constructive feedback. "
-            f"Evaluate: (1) Grammar and spelling, (2) Sentence clarity, "
-            f"(3) Structure and flow, (4) Argument quality, (5) Academic tone. "
-            f"List specific improvements. Be encouraging but honest.\n\nASSIGNMENT:\n{text[:3000]}"
-        )
-        with st.spinner("Analysing…"):
-            resp, src = _ai(prompt, "General Study Assistant",
-                            fallback="AI feedback unavailable. Try checking: grammar, paragraph structure, and citation format.")
-        st.markdown(f'<div class="card card-blue">{resp}{_source_badge(src)}</div>',
-                    unsafe_allow_html=True)
-        st.download_button(
-            "⬇️ Download Feedback",
-            data=resp,
-            file_name=f"feedback_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-            mime="text/plain",
-            use_container_width=True,
-        )
+                _hr()
+                prompt = (
+                    f"Review the following student assignment and provide constructive feedback. "
+                    f"Evaluate: (1) Grammar and spelling, (2) Sentence clarity, "
+                    f"(3) Structure and flow, (4) Argument quality, (5) Academic tone. "
+                    f"List specific improvements. Be encouraging but honest.\n\nASSIGNMENT:\n{text[:3000]}"
+                )
+                with st.spinner("Analysing…"):
+                    resp, src = _ai(prompt, "General Study Assistant",
+                                    fallback="AI feedback unavailable. Try checking: grammar, paragraph structure, and citation format.")
+                st.markdown(f'<div class="card card-blue" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>',
+                            unsafe_allow_html=True)
+                st.toast("Feedback generated!", icon="✅")
+                st.download_button(
+                    "⬇️ Download Feedback",
+                    data=resp,
+                    file_name=f"feedback_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                    on_click=lambda: st.toast("Downloaded!", icon="⬇️")
+                )
 
 
 # ── 6. Study Planner ──────────────────────────────────────────────────────────
@@ -552,50 +574,54 @@ elif page == "📅 Study Planner":
     track_feature_usage("planner")
     st.markdown("### 📅 Study Planner")
 
-    c1, c2     = st.columns(2)
-    exam_date  = c1.date_input("Exam date", value=date.today().replace(month=min(date.today().month + 1, 12)))
-    hours_day  = c1.slider("Hours per day", 1.0, 10.0, 4.0, 0.5)
-    subjects_r = c2.text_area("Subjects (one per line)", height=160,
-                               placeholder="Python Programming\nDBMS\nOperating Systems\nComputer Networks")
-    ai_tips    = c2.checkbox("✨ Add AI study tips for each subject")
+    with st.container():
+        c1, c2     = st.columns(2)
+        exam_date  = c1.date_input("Exam date", value=date.today().replace(month=min(date.today().month + 1, 12)))
+        hours_day  = c1.slider("Hours per day", 1.0, 10.0, 4.0, 0.5)
+        subjects_r = c2.text_area("Subjects (one per line)", height=160,
+                                   placeholder="Python Programming\nDBMS\nOperating Systems\nComputer Networks")
+        ai_tips    = c2.checkbox("✨ Add AI study tips for each subject")
 
-    if st.button("📅 Generate Plan", type="primary"):
-        subjects = [s.strip() for s in subjects_r.splitlines() if s.strip()]
-        if not subjects:
-            st.warning("Enter at least one subject.")
-        elif exam_date <= date.today():
-            st.warning("Exam date must be in the future.")
-        else:
-            plan = build_study_plan(subjects, exam_date, hours_day)
-            days = (exam_date - date.today()).days
-            st.success(f"📅 {days}-day plan · {len(subjects)} subjects · {hours_day}h/day · {round(days*hours_day)}h total")
+        if st.button("📅 Generate Plan", type="primary"):
+            subjects = [s.strip() for s in subjects_r.splitlines() if s.strip()]
+            if not subjects:
+                st.toast("Enter at least one subject!", icon="⚠️")
+                st.warning("Enter at least one subject.")
+            elif exam_date <= date.today():
+                st.toast("Exam date must be in the future!", icon="⚠️")
+                st.warning("Exam date must be in the future.")
+            else:
+                plan = build_study_plan(subjects, exam_date, hours_day)
+                days = (exam_date - date.today()).days
+                st.success(f"📅 {days}-day plan · {len(subjects)} subjects · {hours_day}h/day · {round(days*hours_day)}h total")
 
-            for entry in plan[:60]:
-                is_rev = "Revision" in entry["subject"]
-                colour = "card-red" if is_rev else "card-green"
-                st.markdown(
-                    f'<div class="card {colour}" style="padding:0.6rem 1.2rem">'
-                    f'<b>{entry["date"]}</b>  —  {entry["subject"]}  '
-                    f'<span style="color:#64748b">({entry["hours"]}h)</span><br>'
-                    f'<span style="font-size:0.82rem;color:#94a3b8">{entry["note"]}</span>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
+                for entry in plan[:60]:
+                    is_rev = "Revision" in entry["subject"]
+                    colour = "card-red" if is_rev else "card-green"
+                    st.markdown(
+                        f'<div class="card {colour}" style="padding:0.6rem 1.2rem;margin-bottom:0.5rem;">'
+                        f'<b>{entry["date"]}</b>  —  {entry["subject"]}  '
+                        f'<span style="color:#64748b">({entry["hours"]}h)</span><br>'
+                        f'<span style="font-size:0.82rem;color:#94a3b8">{entry["note"]}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
-            if ai_tips and subjects:
-                _hr()
-                st.markdown("### ✨ AI Study Tips")
-                prompt = (
-                    f"I have {days} days to prepare for an exam covering: {', '.join(subjects)}. "
-                    f"I study {hours_day} hours per day. "
-                    f"Give me: 1) priority order for topics, 2) one key tip per subject, "
-                    f"3) a revision strategy for the last 3 days."
-                )
-                with st.spinner("Getting AI tips…"):
-                    resp, src = _ai(prompt, "Study Planner",
-                                    fallback="Focus on weak areas first, practice past papers in the final 3 days.")
-                st.markdown(f'<div class="card card-purple">{resp}{_source_badge(src)}</div>',
-                            unsafe_allow_html=True)
+                if ai_tips and subjects:
+                    _hr()
+                    st.markdown("### ✨ AI Study Tips")
+                    prompt = (
+                        f"I have {days} days to prepare for an exam covering: {', '.join(subjects)}. "
+                        f"I study {hours_day} hours per day. "
+                        f"Give me: 1) priority order for topics, 2) one key tip per subject, "
+                        f"3) a revision strategy for the last 3 days."
+                    )
+                    with st.spinner("Getting AI tips…"):
+                        resp, src = _ai(prompt, "Study Planner",
+                                        fallback="Focus on weak areas first, practice past papers in the final 3 days.")
+                    st.markdown(f'<div class="card card-purple" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>',
+                                unsafe_allow_html=True)
+                    st.toast("AI study tips generated!", icon="✅")
 
 
 # ── 7. Exam Paper Generator ───────────────────────────────────────────────────
@@ -603,35 +629,42 @@ elif page == "🧾 Exam Paper Generator":
     track_feature_usage("exam")
     st.markdown("### 🧾 Exam Paper Generator")
 
-    c1, c2 = st.columns(2)
-    subject    = c1.text_input("Subject",   placeholder="DBMS, Python, Computer Networks…")
-    difficulty = c1.selectbox("Difficulty", ["Easy", "Medium", "Hard", "Mixed"])
-    duration   = c2.selectbox("Duration",   ["1 Hour", "2 Hours", "3 Hours"])
-    marks      = c2.selectbox("Total Marks",["40", "50", "75", "100"])
+    with st.container():
+        c1, c2 = st.columns(2)
+        subject    = c1.text_input("Subject",   placeholder="DBMS, Python, Computer Networks…")
+        difficulty = c1.selectbox("Difficulty", ["Easy", "Medium", "Hard", "Mixed"])
+        duration   = c2.selectbox("Duration",   ["1 Hour", "2 Hours", "3 Hours"])
+        marks      = c2.selectbox("Total Marks",["40", "50", "75", "100"])
 
-    if st.button("📋 Generate Exam Paper", type="primary") and subject.strip():
-        prompt = (
-            f"Generate a university-style exam paper for: **{subject}**\n"
-            f"Total Marks: {marks} | Duration: {duration} | Difficulty: {difficulty}\n\n"
-            f"Format:\n"
-            f"Section A: MCQs (20% of marks)\n"
-            f"Section B: Short Answer (30% of marks, 3–4 questions)\n"
-            f"Section C: Long Answer (50% of marks, 2–3 questions)\n\n"
-            f"Include marks per question. Write clearly numbered questions."
-        )
-        update_study_tracking(subject)
-        with st.spinner("Generating exam paper…"):
-            resp, src = _ai(prompt, "Exam Prep",
-                            fallback=f"Exam paper generation unavailable. Subject: {subject}")
-        st.markdown(f'<div class="card">{resp}{_source_badge(src)}</div>',
-                    unsafe_allow_html=True)
-        st.download_button(
-            "⬇️ Download Exam Paper",
-            data=resp,
-            file_name=f"exam_{subject[:20].replace(' ','_')}.txt",
-            mime="text/plain",
-            use_container_width=True,
-        )
+        if st.button("📋 Generate Exam Paper", type="primary"):
+            if not subject.strip():
+                st.toast("Please enter a subject!", icon="⚠️")
+                st.warning("Please enter a subject.")
+            else:
+                prompt = (
+                    f"Generate a university-style exam paper for: **{subject}**\n"
+                    f"Total Marks: {marks} | Duration: {duration} | Difficulty: {difficulty}\n\n"
+                    f"Format:\n"
+                    f"Section A: MCQs (20% of marks)\n"
+                    f"Section B: Short Answer (30% of marks, 3–4 questions)\n"
+                    f"Section C: Long Answer (50% of marks, 2–3 questions)\n\n"
+                    f"Include marks per question. Write clearly numbered questions."
+                )
+                update_study_tracking(subject)
+                with st.spinner("Generating exam paper…"):
+                    resp, src = _ai(prompt, "Exam Prep",
+                                    fallback=f"Exam paper generation unavailable. Subject: {subject}")
+                st.markdown(f'<div class="card" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>',
+                            unsafe_allow_html=True)
+                st.toast("Exam paper generated!", icon="✅")
+                st.download_button(
+                    "⬇️ Download Exam Paper",
+                    data=resp,
+                    file_name=f"exam_{subject[:20].replace(' ','_')}.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                    on_click=lambda: st.toast("Downloaded!", icon="⬇️")
+                )
 
 
 # ── 8. Code Runner ────────────────────────────────────────────────────────────
@@ -640,33 +673,39 @@ elif page == "💻 Code Runner":
     st.markdown("### 💻 Code Runner")
     st.warning("⚠️ Runs Python only. Dangerous imports (os, sys, subprocess…) are blocked.")
 
-    snippets = {
-        "— blank —":         "# Write your Python code here\nprint('Hello, World!')",
-        "Hello World":       "print('Hello, World!')\nprint(2 ** 10)",
-        "Fibonacci":         "def fib(n):\n    a, b = 0, 1\n    for _ in range(n):\n        print(a, end=' ')\n        a, b = b, a+b\nfib(12)",
-        "List Comprehension":"squares = [x**2 for x in range(1, 11)]\nprint('Squares:', squares)\nevens = [x for x in range(20) if x % 2 == 0]\nprint('Evens:', evens)",
-        "Class Example":     "class Student:\n    def __init__(self, name, grade):\n        self.name = name\n        self.grade = grade\n    def __repr__(self):\n        return f'Student({self.name}, grade={self.grade})'\n\ns = Student('Alice', 'A')\nprint(s)",
-    }
-    starter  = st.selectbox("Load starter snippet", list(snippets.keys()))
-    code_val = snippets[starter]
-    code     = st.text_area("Python code", value=code_val, height=280)
-    timeout  = st.slider("Timeout (seconds)", 3, 15, 8)
+    with st.container():
+        snippets = {
+            "— blank —":         "# Write your Python code here\nprint('Hello, World!')",
+            "Hello World":       "print('Hello, World!')\nprint(2 ** 10)",
+            "Fibonacci":         "def fib(n):\n    a, b = 0, 1\n    for _ in range(n):\n        print(a, end=' ')\n        a, b = b, a+b\nfib(12)",
+            "List Comprehension":"squares = [x**2 for x in range(1, 11)]\nprint('Squares:', squares)\nevens = [x for x in range(20) if x % 2 == 0]\nprint('Evens:', evens)",
+            "Class Example":     "class Student:\n    def __init__(self, name, grade):\n        self.name = name\n        self.grade = grade\n    def __repr__(self):\n        return f'Student({self.name}, grade={self.grade})'\n\ns = Student('Alice', 'A')\nprint(s)",
+        }
+        starter  = st.selectbox("Load starter snippet", list(snippets.keys()))
+        code_val = snippets[starter]
+        code     = st.text_area("Python code", value=code_val, height=280)
+        timeout  = st.slider("Timeout (seconds)", 3, 15, 8)
 
-    if st.button("▶️ Run Code", type="primary"):
-        with st.spinner("Executing…"):
-            stdout, stderr = execute_python_code(code, timeout)
-
-        if stdout:
-            st.success("✅ Output")
-            st.code(stdout, language="text")
-        if stderr:
-            if "Blocked" in stderr or "timed out" in stderr:
-                st.warning(stderr)
+        if st.button("▶️ Run Code", type="primary"):
+            if not code.strip():
+                st.toast("Please enter some Python code!", icon="⚠️")
+                st.warning("Please enter some Python code.")
             else:
-                st.error("❌ Error")
-                st.code(stderr, language="text")
-        if not stdout and not stderr:
-            st.info("Code ran successfully with no output.")
+                with st.spinner("Executing…"):
+                    stdout, stderr = execute_python_code(code, timeout)
+
+                if stdout:
+                    st.success("✅ Output")
+                    st.code(stdout, language="text")
+                if stderr:
+                    if "Blocked" in stderr or "timed out" in stderr:
+                        st.toast(stderr, icon="⚠️")
+                        st.warning(stderr)
+                    else:
+                        st.error("❌ Error")
+                        st.code(stderr, language="text")
+                if not stdout and not stderr:
+                    st.info("Code ran successfully with no output.")
 
 
 # ── 9. Study Recommender ──────────────────────────────────────────────────────
@@ -675,7 +714,7 @@ elif page == "🎓 Study Recommender":
     st.markdown("### 🎓 Study Recommender")
 
     # Offline rule-based recommendations always shown
-    st.markdown(get_basic_recommendations())
+    st.markdown(f'<div class="card">{get_basic_recommendations()}</div>', unsafe_allow_html=True)
 
     _hr()
     st.markdown("#### ✨ Personalised AI Learning Path")
@@ -697,8 +736,9 @@ elif page == "🎓 Study Recommender":
         with st.spinner("Building learning path…"):
             resp, src = _ai(prompt, "General Study Assistant",
                             fallback=get_basic_recommendations())
-        st.markdown(f'<div class="card card-purple">{resp}{_source_badge(src)}</div>',
+        st.markdown(f'<div class="card card-purple" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>',
                     unsafe_allow_html=True)
+        st.toast("AI learning path generated!", icon="✅")
 
 
 # ── 10. Dashboard ─────────────────────────────────────────────────────────────
@@ -724,7 +764,7 @@ elif page == "📊 Dashboard":
         feat_data = [(f, v) for f, v in get_most_used_features() if v > 0]
         if feat_data:
             for feat, count in feat_data:
-                st.metric(feat, count)
+                st.markdown(f'<div class="card" style="padding:0.7rem 1.2rem;margin-bottom:0.5rem;"><b>{feat}</b>: {count}</div>', unsafe_allow_html=True)
         else:
             st.caption("No tool usage recorded yet.")
 
@@ -733,7 +773,7 @@ elif page == "📊 Dashboard":
         topics = st.session_state.topics_studied
         if topics:
             for t in topics:
-                st.markdown(f"• {t}")
+                st.markdown(f'<div class="card" style="padding:0.5rem 1.2rem;margin-bottom:0.3rem;">• {t}</div>', unsafe_allow_html=True)
         else:
             st.caption("No topics tracked yet — start chatting!")
 
@@ -744,7 +784,7 @@ elif page == "📊 Dashboard":
         for msg in recent:
             icon    = "👤" if msg["role"] == "user" else "🤖"
             preview = msg["content"][:120] + ("…" if len(msg["content"]) > 120 else "")
-            st.markdown(f"**{icon}** {preview}")
+            st.markdown(f'<div class="card" style="padding:0.5rem 1.2rem;margin-bottom:0.3rem;">**{icon}** {preview}</div>', unsafe_allow_html=True)
     else:
         st.caption("No chat activity yet.")
 
@@ -764,7 +804,8 @@ elif page == "💬 AI Chat":
     # Render history
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
-            st.markdown(msg["content"], unsafe_allow_html=True)
+            bubble_class = "card card-accent" if msg["role"] == "user" else "card"
+            st.markdown(f'<div class="{bubble_class}" style="margin-bottom:0.5rem;">{msg["content"]}</div>', unsafe_allow_html=True)
 
     # Chat input
     prompt = st.chat_input("Ask anything…")
@@ -773,11 +814,16 @@ elif page == "💬 AI Chat":
         update_study_tracking(prompt)
 
         with st.chat_message("user"):
-            st.markdown(prompt)
+            st.markdown(f'<div class="card card-accent">{prompt}</div>', unsafe_allow_html=True)
         _add_message("user", prompt)
 
         with st.chat_message("assistant"):
-            answer = _render_response(prompt, st.session_state.mode)
+            try:
+                answer = _render_response(prompt, st.session_state.mode)
+            except Exception as e:
+                st.toast(f"Error: {e}", icon="❌")
+                answer = "Sorry, there was an error processing your request."
+            st.markdown(f'<div class="card">{answer}</div>', unsafe_allow_html=True)
         _add_message("assistant", answer)
 
 
@@ -786,28 +832,34 @@ elif page == "🧩 Quiz Generator":
     track_feature_usage("quiz")
     st.markdown("### 🧩 Quiz Generator")
 
-    topic  = st.text_input("Quiz topic", placeholder="DBMS, Python OOP, OSI Model…")
-    num_q  = st.slider("Number of questions", 3, 10, 5)
-    level  = st.select_slider("Difficulty", ["Easy", "Mixed", "Hard"], value="Mixed")
+    with st.container():
+        topic  = st.text_input("Quiz topic", placeholder="DBMS, Python OOP, OSI Model…")
+        num_q  = st.slider("Number of questions", 3, 10, 5)
+        level  = st.select_slider("Difficulty", ["Easy", "Mixed", "Hard"], value="Mixed")
 
-    if st.button("🧩 Generate Quiz", type="primary") and topic.strip():
-        prompt = (
-            f"Create a {level.lower()}-difficulty quiz on **{topic}** with exactly {num_q} questions.\n"
-            f"For each question provide:\n"
-            f"  • The question\n"
-            f"  • 4 labelled options (A, B, C, D)\n"
-            f"  • The correct answer\n"
-            f"  • A brief explanation (1–2 sentences)\n\n"
-            f"Number questions clearly (Q1, Q2, …)."
-        )
-        update_study_tracking(topic)
-        with st.spinner("Generating quiz…"):
-            resp, src = _ai(prompt, "Quiz Generator",
-                            fallback=f"Quiz generation unavailable. Topic: {topic}")
-        st.markdown(f'<div class="card">{resp}{_source_badge(src)}</div>',
-                    unsafe_allow_html=True)
-        _add_message("user",      f"Generate quiz on {topic}")
-        _add_message("assistant", resp)
+        if st.button("🧩 Generate Quiz", type="primary"):
+            if not topic.strip():
+                st.toast("Please enter a quiz topic!", icon="⚠️")
+                st.warning("Please enter a quiz topic.")
+            else:
+                prompt = (
+                    f"Create a {level.lower()}-difficulty quiz on **{topic}** with exactly {num_q} questions.\n"
+                    f"For each question provide:\n"
+                    f"  • The question\n"
+                    f"  • 4 labelled options (A, B, C, D)\n"
+                    f"  • The correct answer\n"
+                    f"  • A brief explanation (1–2 sentences)\n\n"
+                    f"Number questions clearly (Q1, Q2, …)."
+                )
+                update_study_tracking(topic)
+                with st.spinner("Generating quiz…"):
+                    resp, src = _ai(prompt, "Quiz Generator",
+                                    fallback=f"Quiz generation unavailable. Topic: {topic}")
+                st.markdown(f'<div class="card" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>',
+                            unsafe_allow_html=True)
+                st.toast("Quiz generated!", icon="✅")
+                _add_message("user",      f"Generate quiz on {topic}")
+                _add_message("assistant", resp)
 
 
 # ── 13. Code Helper ───────────────────────────────────────────────────────────
@@ -815,73 +867,104 @@ elif page == "🐛 Code Helper":
     track_feature_usage("code")
     st.markdown("### 🐛 Code Helper")
 
-    action = st.radio(
-        "What do you need?",
-        ["🔍 Debug & Fix", "📖 Explain Code", "⚡ Optimise", "✍️ Write Code"],
-        horizontal=True,
-    )
+    tab_labels = ["🔍 Debug & Fix", "📖 Explain Code", "⚡ Optimise", "✍️ Write Code"]
+    tabs = st.tabs(tab_labels)
 
-    if "✍️ Write" in action:
-        desc     = st.text_area("Describe what the code should do", height=120,
-                                placeholder="Write a Python function to merge two sorted lists…")
-        lang_sel = st.selectbox("Language", ["Python", "Java", "C++", "JavaScript", "SQL"])
-        if st.button("✍️ Generate Code", type="primary") and desc.strip():
-            prompt = (
-                f"Write clean, well-commented {lang_sel} code for:\n{desc}\n\n"
-                f"Include: function/class definition, example usage, and a short explanation."
-            )
-            with st.spinner("Writing code…"):
-                resp, src = _ai(prompt, "Programming Helper",
-                                fallback=f"# {lang_sel} code for: {desc}\n# AI unavailable.")
-            st.markdown(f'<div class="card">{resp}{_source_badge(src)}</div>',
-                        unsafe_allow_html=True)
-    else:
-        code = st.text_area("Paste your code", height=250,
+    # Debug & Fix
+    with tabs[0]:
+        code = st.text_area("Paste your code", height=250, key="debug_code",
                             placeholder="# Paste your code here…")
-        err  = ""
-        if "🔍 Debug" in action:
-            err = st.text_input("Error message (optional)",
-                                placeholder="e.g. TypeError: unsupported operand type(s)…")
-
-        if st.button("🔍 Analyse", type="primary") and code.strip():
-            if "🔍 Debug" in action:
+        err  = st.text_input("Error message (optional)", key="debug_err",
+                            placeholder="e.g. TypeError: unsupported operand type(s)…")
+        if st.button("🔍 Analyse (Debug)", key="debug_btn", type="primary"):
+            if not code.strip():
+                st.toast("Please paste your code!", icon="⚠️")
+                st.warning("Please paste your code.")
+            else:
                 prompt = (
                     f"Debug this code:\n```\n{code}\n```\n"
                     + (f"\nError: {err}\n" if err else "")
                     + "\nProvide: (1) Root cause, (2) Fixed code, (3) Explanation."
                 )
-                mode = "Code Debugger"
-            elif "📖 Explain" in action:
+                update_study_tracking("code debugging")
+                with st.spinner("Analysing…"):
+                    resp, src = _ai(prompt, "Code Debugger",
+                                    fallback="AI unavailable. Check: syntax errors, off-by-one issues, and variable names.")
+                st.markdown(f'<div class="card" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>', unsafe_allow_html=True)
+                st.toast("Debug analysis complete!", icon="✅")
+                _add_message("user",      f"[Code analysis: Debug]")
+                _add_message("assistant", resp)
+
+    # Explain Code
+    with tabs[1]:
+        code = st.text_area("Paste your code", height=250, key="explain_code",
+                            placeholder="# Paste your code here…")
+        if st.button("📖 Explain Code", key="explain_btn", type="primary"):
+            if not code.strip():
+                st.toast("Please paste your code!", icon="⚠️")
+                st.warning("Please paste your code.")
+            else:
                 prompt = (
                     f"Explain this code line by line for a student:\n```\n{code}\n```\n"
                     f"Cover: purpose, logic flow, data structures, time/space complexity."
                 )
-                mode = "Programming Helper"
-            else:  # Optimise
+                update_study_tracking("code explanation")
+                with st.spinner("Explaining…"):
+                    resp, src = _ai(prompt, "Programming Helper",
+                                    fallback="AI unavailable. Check: syntax errors, off-by-one issues, and variable names.")
+                st.markdown(f'<div class="card" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>', unsafe_allow_html=True)
+                st.toast("Code explained!", icon="✅")
+                _add_message("user",      f"[Code analysis: Explain]")
+                _add_message("assistant", resp)
+
+    # Optimise
+    with tabs[2]:
+        code = st.text_area("Paste your code", height=250, key="optimise_code",
+                            placeholder="# Paste your code here…")
+        if st.button("⚡ Optimise Code", key="optimise_btn", type="primary"):
+            if not code.strip():
+                st.toast("Please paste your code!", icon="⚠️")
+                st.warning("Please paste your code.")
+            else:
                 prompt = (
                     f"Analyse and optimise this code:\n```\n{code}\n```\n"
                     f"Provide: (1) Issues, (2) Optimised version, (3) Explanation."
                 )
-                mode = "Code Debugger"
+                update_study_tracking("code optimisation")
+                with st.spinner("Optimising…"):
+                    resp, src = _ai(prompt, "Code Debugger",
+                                    fallback="AI unavailable. Check: syntax errors, off-by-one issues, and variable names.")
+                st.markdown(f'<div class="card" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>', unsafe_allow_html=True)
+                st.toast("Code optimised!", icon="✅")
+                _add_message("user",      f"[Code analysis: Optimise]")
+                _add_message("assistant", resp)
 
-            update_study_tracking("code debugging")
-            with st.spinner("Analysing…"):
-                resp, src = _ai(prompt, mode,
-                                fallback="AI unavailable. Check: syntax errors, off-by-one issues, and variable names.")
-            st.markdown(f'<div class="card">{resp}{_source_badge(src)}</div>',
-                        unsafe_allow_html=True)
-            _add_message("user",      f"[Code analysis: {action}]")
-            _add_message("assistant", resp)
+    # Write Code
+    with tabs[3]:
+        desc     = st.text_area("Describe what the code should do", height=120, key="write_desc",
+                                placeholder="Write a Python function to merge two sorted lists…")
+        lang_sel = st.selectbox("Language", ["Python", "Java", "C++", "JavaScript", "SQL"], key="write_lang")
+        if st.button("✍️ Generate Code", key="write_btn", type="primary"):
+            if not desc.strip():
+                st.toast("Please describe the code you want!", icon="⚠️")
+                st.warning("Please describe the code you want.")
+            else:
+                prompt = (
+                    f"Write clean, well-commented {lang_sel} code for:\n{desc}\n\n"
+                    f"Include: function/class definition, example usage, and a short explanation."
+                )
+                with st.spinner("Writing code…"):
+                    resp, src = _ai(prompt, "Programming Helper",
+                                    fallback=f"# {lang_sel} code for: {desc}\n# AI unavailable.")
+                st.markdown(f'<div class="card" style="font-size:1.08rem;">{resp}{_source_badge(src)}</div>', unsafe_allow_html=True)
+                st.toast("Code generated!", icon="✅")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Footer
 # ─────────────────────────────────────────────────────────────────────────────
 
-st.markdown("""
-<hr style='border-color:#1e2d4a;margin-top:2rem'>
-<div style='text-align:center;color:#475569;font-size:0.78rem;padding-bottom:1rem'>
-  🎓 AI Academic Platform &nbsp;·&nbsp; Gemini 1.5 Flash + Claude 3 Haiku
-  &nbsp;·&nbsp; Built for college students
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+        '<div class="footer">🎓 AI Academic Platform · Gemini 1.5 Flash + Claude 3 Haiku · Built for college students</div>',
+        unsafe_allow_html=True
+)

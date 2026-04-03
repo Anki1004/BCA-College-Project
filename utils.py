@@ -213,6 +213,31 @@ def update_study_tracking(user_text: str) -> None:
     existing   = st.session_state.get("topics_studied", [])
     st.session_state["topics_studied"] = unique_topics(existing + new_topics)[:50]
 
+    # --- Gamification: Points & Streaks ---
+    import datetime
+    st.session_state["points"] = st.session_state.get("points", 0) + 5  # +5 points per action
+    today = datetime.datetime.now().date()
+    last = st.session_state.get("last_active_date", today)
+    if today > last:
+        # New day: streak logic
+        if (today - last).days == 1:
+            st.session_state["streak"] = st.session_state.get("streak", 1) + 1
+        else:
+            st.session_state["streak"] = 1
+        if st.session_state["streak"] > st.session_state.get("best_streak", 1):
+            st.session_state["best_streak"] = st.session_state["streak"]
+        st.session_state["last_active_date"] = today
+
+    # --- Badges ---
+    badges = set(st.session_state.get("badges", []))
+    # Quiz Master: 10 quizzes
+    if st.session_state.feature_usage.get("Quiz Generator", 0) >= 10:
+        badges.add("Quiz Master 🧩")
+    # Streak Starter: 3-day streak
+    if st.session_state.get("streak", 1) >= 3:
+        badges.add("Streak Starter 🔥")
+    st.session_state["badges"] = list(badges)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  5. User profile
